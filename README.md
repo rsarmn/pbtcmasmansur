@@ -1,13 +1,90 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Sistem Penginapan Pesantren Mahasiswa
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Aplikasi web untuk mengelola sistem penginapan di Pesantren Mahasiswa KH. Mas Mansur.
 
-## About Laravel
+## 🎯 Fitur Utama
+
+- **Dashboard Admin**: Statistik kamar tersedia, kamar kosong, dan jumlah pengunjung
+- **Manajemen Kamar**: CRUD data kamar penginapan
+- **Manajemen Pengunjung**: CRUD data pengunjung/tamu
+- **Booking Corporate**: Form pemesanan untuk grup/korporat
+- **Autentikasi**: Login admin dengan session
+
+## 🛠️ Teknologi
+
+- **Backend**: Laravel 11.x
+- **Frontend**: Blade Templates + Bootstrap 5.3.3
+- **Database**: MySQL
+- **Server**: MAMP (macOS)
+
+## 🚀 Quick Start
+
+**Login Credentials:**
+- Email: `admin@example.com`
+- Password: `password123`
+
+**Database sudah di-seed dengan:**
+- 1 Admin user
+- 6 Sample kamar (mix single, double, suite)
+- 3 Sample pengunjung
+
+## 📋 Instalasi Lengkap
+
+```bash
+# 1. Masuk ke direktori MAMP
+cd /Applications/MAMP
+
+# 2. Clone repository (jika dari git)
+git clone <repository-url> penginapan
+cd penginapan
+
+# 3. Install dependencies
+composer install
+
+# 4. Setup environment
+cp .env.example .env
+php artisan key:generate
+
+# 5. Konfigurasi database di .env
+# DB_DATABASE=penginapan
+# DB_USERNAME=root
+# DB_PASSWORD=root
+
+# 6. Buat database
+mysql -u root -p -e "CREATE DATABASE penginapan;"
+
+# 7. Migrasi dan seed
+php artisan migrate:fresh --seed
+
+# 8. Jalankan server
+php artisan serve
+# Akses: http://localhost:8000
+```
+
+## 📁 Struktur Fitur
+
+### 🏠 Dashboard (`/admin/dashboard`)
+- Kartu statistik kamar tersedia (%)
+- Kartu statistik kamar kosong (%)  
+- Kartu jumlah pengunjung (angka)
+- Background dengan blob shapes
+
+### 🛏️ Data Kamar (`/admin/kamar`)
+- List semua kamar dengan nomor, jenis, gedung, harga, fasilitas, status
+- Hapus kamar (dengan konfirmasi)
+- Tombol "Kembali" ke dashboard
+
+### 👥 Data Pengunjung (`/admin/pengunjung`)
+- List pengunjung dengan nama, no identitas, jenis tamu, check-in/out, nomor kamar
+- Hapus pengunjung (dengan konfirmasi)
+- Tombol "Kembali" ke dashboard
+
+### 🔐 Login (`/login`)
+- Two-panel layout (ilustrasi + form)
+- Email dan password validation
+- Redirect ke dashboard setelah sukses
+
+## 🎨 Desain UI
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
 
