@@ -150,11 +150,11 @@
           </div>
         </div>
 
-        <form class="upload-box mt-4" action="{{ route('booking.payment.upload', $pengunjung->id) }}" method="POST" enctype="multipart/form-data">
+        <form class="upload-box mt-4" action="{{ route('booking.payment.upload', $pengunjung->id) }}" method="POST" enctype="multipart/form-data" id="paymentForm">
           @csrf
           <label class="fw-bold mb-1">Upload Bukti Pembayaran</label>
-          <input type="file" name="bukti_pembayaran" accept=".jpg,.jpeg,.png,.pdf" required>
-          <small class="text-muted">Format yang diperbolehkan: JPG, PNG, atau PDF.</small>
+          <input type="file" name="bukti_pembayaran" id="buktiFile" accept=".jpg,.jpeg,.png,.pdf" required>
+          <small class="text-muted">Format yang diperbolehkan: JPG, PNG, atau PDF (Max 2MB).</small>
 
           <div class="mt-3">
             <button type="submit" class="btn-maroon">Kirim Bukti</button>
@@ -246,4 +246,56 @@
   </div>
 
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('paymentForm');
+    const fileInput = document.getElementById('buktiFile');
+
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            if (!fileInput.files || fileInput.files.length === 0) {
+                e.preventDefault();
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'File Belum Dipilih',
+                    text: 'Silakan pilih file bukti pembayaran terlebih dahulu',
+                    confirmButtonColor: '#a0203c'
+                });
+                return false;
+            }
+
+            const file = fileInput.files[0];
+            const maxSize = 2 * 1024 * 1024; // 2MB
+
+            if (file.size > maxSize) {
+                e.preventDefault();
+                Swal.fire({
+                    icon: 'error',
+                    title: 'File Terlalu Besar',
+                    text: 'Ukuran file maksimal 2MB',
+                    confirmButtonColor: '#a0203c'
+                });
+                return false;
+            }
+
+            // Show loading
+            e.preventDefault();
+            Swal.fire({
+                title: 'Mengunggah...',
+                text: 'Mohon tunggu sebentar',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+            
+            // Submit form
+            setTimeout(() => {
+                form.submit();
+            }, 500);
+        });
+    }
+});
+</script>
 @endsection

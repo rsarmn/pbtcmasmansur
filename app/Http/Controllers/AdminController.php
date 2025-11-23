@@ -17,12 +17,13 @@ class AdminController extends Controller
         $totalKamar = Kamar::count();
         $kamarKosong = Kamar::where('status','kosong')->count();
         $kamarTerisi = max(0, $totalKamar - $kamarKosong);
-        $jumlahPengunjung = Pengunjung::count();
-        // recent activity: latest bookings, today's check-ins, upcoming check-outs
-        $recentBookings = Pengunjung::latest()->take(6)->get();
+        // Hanya hitung pengunjung yang sudah approved
+        $jumlahPengunjung = Pengunjung::whereIn('payment_status', ['paid', 'lunas'])->count();
+        // recent activity: latest approved bookings, today's check-ins, upcoming check-outs
+        $recentBookings = Pengunjung::whereIn('payment_status', ['paid', 'lunas'])->latest()->take(6)->get();
         $today = now()->toDateString();
-        $todayCheckins = Pengunjung::whereDate('check_in', $today)->get();
-        $upcomingCheckouts = Pengunjung::whereDate('check_out', '>=', $today)->orderBy('check_out')->take(6)->get();
+        $todayCheckins = Pengunjung::whereIn('payment_status', ['paid', 'lunas'])->whereDate('check_in', $today)->get();
+        $upcomingCheckouts = Pengunjung::whereIn('payment_status', ['paid', 'lunas'])->whereDate('check_out', '>=', $today)->orderBy('check_out')->take(6)->get();
 
         return view('admin.dashboard', compact(
             'totalKamar','kamarKosong','kamarTerisi','jumlahPengunjung',

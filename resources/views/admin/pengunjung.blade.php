@@ -30,6 +30,36 @@ document.addEventListener('DOMContentLoaded', function() {
   document.addEventListener('click', () => {
     document.querySelectorAll('.aksi-menu').forEach(m => m.classList.remove('show'));
   });
+
+  // Handle delete with SweetAlert
+  document.querySelectorAll('.delete-form').forEach(form => {
+    form.addEventListener('submit', function(e) {
+      e.preventDefault();
+      Swal.fire({
+        title: 'Hapus Data?',
+        text: "Data yang dihapus tidak dapat dikembalikan!",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc3545',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Ya, Hapus!',
+        cancelButtonText: '✖️ Batal',
+        reverseButtons: true
+      }).then((result) => {
+        if (result.isConfirmed) {
+          form.submit();
+          Swal.fire({
+            icon: 'success',
+            title: 'Menghapus...',
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 1500
+          });
+        }
+      });
+    });
+  });
 });
 </script>
 
@@ -60,13 +90,22 @@ document.addEventListener('DOMContentLoaded', function() {
       <tbody>
         @forelse($pengunjungs as $p)
         <tr>
-          <td>{{ $p->nama }}</td>
-          <td>KTP</td>
+          <td>
+            @if($p->jenis_tamu == 'corporate')
+              <strong>{{ $p->nama_pic ?? 'PIC' }}</strong>
+              @if($p->nama)
+                <br><small style="color:#666">{{ $p->nama }}</small>
+              @endif
+            @else
+              {{ $p->nama }}
+            @endif
+          </td>
+          <td>{{ strtoupper($p->identity_type ?? 'KTP') }}</td>
           <td>{{ $p->no_identitas }}</td>
-          <td>{{ $p->jenis_tamu }}</td>
+          <td><span style="background:{{ $p->jenis_tamu == 'corporate' ? '#28a745' : '#007bff' }};color:#fff;padding:4px 10px;border-radius:12px;font-size:12px">{{ ucfirst($p->jenis_tamu) }}</span></td>
           <td>{{ $p->check_in }}</td>
           <td>{{ $p->check_out }}</td>
-          <td>{{ $p->kode_kamar ?? $p->nomor_kamar }}</td>
+          <td>{{ $p->kode_kamar }}</td>
           <td>{{ $p->payment_status_label }}</td>
           <td>
             @php
@@ -77,13 +116,13 @@ document.addEventListener('DOMContentLoaded', function() {
               @if($wa)
                 <a href="{{ $wa }}" target="_blank" class="pill-btn" style="background:#25D366;color:#fff;padding:6px 10px">Chat</a>
               @endif
-              <div style="position:relative">
+                <div style="position:relative">
                 <button class="pill-btn">Aksi ▾</button>
                 <div style="position:absolute;right:0;background:#fff;border:1px solid #eee;padding:8px;border-radius:6px;display:none;min-width:160px" class="aksi-menu">
-                  <a href="{{ route('pengunjung.show', $p->id) }}" style="display:block;padding:6px 8px">View Detail</a>
-                  <a href="{{ route('pengunjung.edit', $p->id) }}" style="display:block;padding:6px 8px">Edit</a>
-                  <form action="{{ route('pengunjung.destroy', $p->id) }}" method="GET" onsubmit="return confirm('Hapus pengunjung ini?')">
-                    <button style="width:100%;text-align:left;padding:6px 8px;border:0;background:none;cursor:pointer;color:#dc3545">Hapus</button>
+                  <a href="{{ route('pengunjung.show', $p->id) }}" style="display:block;padding:6px 8px;text-decoration:none;color:#333">👁️ View Detail</a>
+                  <a href="{{ route('pengunjung.edit', $p->id) }}" style="display:block;padding:6px 8px;text-decoration:none;color:#333">✏️ Edit</a>
+                  <form action="{{ route('pengunjung.destroy', $p->id) }}" method="GET" class="delete-form">
+                    <button type="submit" style="width:100%;text-align:left;padding:6px 8px;border:0;background:none;cursor:pointer;color:#dc3545">🗑️ Hapus</button>
                   </form>
                 </div>
               </div>

@@ -57,14 +57,13 @@ class BookingController extends Controller
             'special_request' => $request->special_request,
             'bukti_identitas' => $buktiIdentitasPath,
             'kode_kamar'      => $request->kode_kamar,
+            'payment_status'  => 'pending',
         ]);
 
-        Kamar::where('id', $request->kode_kamar)
-            ->update(['status' => 'terisi']);
+        // Kamar akan di-update menjadi 'terisi' setelah admin approve booking
 
         return redirect()
-            ->route('booking.payment', $pengunjung->id)
-            ->with('success', 'Data booking berhasil disimpan!');
+            ->route('booking.payment', $pengunjung->id);
     }
 
     // ============= CORPORATE =============
@@ -164,14 +163,13 @@ class BookingController extends Controller
             'kebutuhan_makan'       => json_encode($makanData),
             'bukti_identitas'       => $buktiIdentitasPath,
             'kode_kamar'            => $request->kode_kamar,
+            'payment_status'        => 'pending',
         ]);
 
-        Kamar::where('id', $request->kode_kamar)
-            ->update(['status' => 'terisi']);
+        // Kamar akan di-update menjadi 'terisi' setelah admin approve booking
 
         return redirect()
-            ->route('booking.payment', $pengunjung->id)
-            ->with('success', 'Data booking corporate berhasil disimpan!');
+            ->route('booking.payment', $pengunjung->id);
     }
 
     // ============= PAYMENT =============
@@ -235,6 +233,38 @@ class BookingController extends Controller
         ));
     }
 
+    // ============= SUCCESS PAGE =============
+    public function success($id)
+    {
+        $pengunjung = Pengunjung::findOrFail($id);
+        $kamar = Kamar::find($pengunjung->kode_kamar);
+
+        $checkIn  = Carbon::parse($pengunjung->check_in);
+        $checkOut = Carbon::parse($pengunjung->check_out);
+        $durasi   = $checkIn->diffInDays($checkOut);
+        $jumlahKamar = $pengunjung->jumlah_kamar ?? 1;
+
+        // Hitung total kamar
+        $totalKamar = ($kamar->harga ?? 0) * $durasi * $jumlahKamar;
+
+        // Hitung total menu
+        $totalMenu = 0;
+        $snacks = json_decode($pengunjung->kebutuhan_snack ?? '[]', true);
+        $makans = json_decode($pengunjung->kebutuhan_makan ?? '[]', true);
+
+        foreach (array_merge($snacks, $makans) as $item) {
+            if (!isset($item['menu_id'])) continue;
+            $menu = MenuPesmaBoga::find($item['menu_id']);
+            if (!$menu) continue;
+            $porsi = $item['porsi'] ?? 1;
+            $totalMenu += $menu->harga * $porsi;
+        }
+
+        $totalPembayaran = $totalKamar + $totalMenu;
+
+        return view('booking.success', compact('pengunjung', 'totalPembayaran'));
+    }
+
     public function uploadBuktiPembayaran(Request $request, $id)
     {
         $request->validate([
@@ -249,10 +279,11 @@ class BookingController extends Controller
         // Update ke database
         $pengunjung->update([
             'bukti_pembayaran' => $path,
+            'payment_status' => 'konfirmasi_booking', // Update status setelah upload bukti
         ]);
 
         return redirect()
-            ->route('booking.payment', $id)
-            ->with('success', 'Bukti pembayaran berhasil diunggah!');
+            ->route('booking.success', $id)
+            ->with('upload_success', true);
     }
 }

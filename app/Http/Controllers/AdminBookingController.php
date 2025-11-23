@@ -32,8 +32,10 @@ class AdminBookingController extends Controller
 
     public function destroy($id)
     {
-        Pengunjung::findOrFail($id)->delete();
+        $booking = Pengunjung::findOrFail($id);
+        $nama = $booking->jenis_tamu == 'corporate' ? $booking->nama_pic : $booking->nama;
+        $booking->delete();
 
-        return back()->with('success', 'Data booking berhasil dihapus');
+        return redirect()->route('admin.booking.index')->with('success', 'Booking atas nama ' . $nama . ' berhasil dihapus');
     }
 }

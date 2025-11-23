@@ -305,6 +305,28 @@ document.addEventListener("DOMContentLoaded", function () {
             checkOut.value = "";
         }
     });
+
+    // Form validation dengan SweetAlert
+    const form = document.querySelector('form');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            const namaPic = document.querySelector('[name="nama_pic"]').value.trim();
+            const namaKegiatan = document.querySelector('[name="nama_kegiatan"]').value.trim();
+            const checkInVal = checkIn.value;
+            const checkOutVal = checkOut.value;
+
+            if (!namaPic || !namaKegiatan || !checkInVal || !checkOutVal) {
+                e.preventDefault();
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Data Belum Lengkap',
+                    text: 'Mohon lengkapi semua field yang wajib diisi (Nama PIC, Nama Kegiatan, Check-in, Check-out)',
+                    confirmButtonColor: '#a0203c'
+                });
+                return false;
+            }
+        });
+    }
 });
 </script>
 

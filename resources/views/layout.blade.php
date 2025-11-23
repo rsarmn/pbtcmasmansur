@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Admin Penginapan</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- SweetAlert2 CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <style>
     :root{
       --brand:#b3123b;
@@ -39,10 +41,11 @@
 
         <!-- Navigation -->
         <nav class="flex gap-6 items-center">
+          <a href="{{ route('admin.dashboard') }}" class="font-semibold opacity-90 hover:opacity-100 hover:underline">Dashboard</a>
           <a href="{{ route('kamar.index') }}" class="font-semibold opacity-90 hover:opacity-100 hover:underline">Data Kamar</a>
           <a href="{{ route('pengunjung.index') }}" class="font-semibold opacity-90 hover:opacity-100 hover:underline">Data Pengunjung</a>
-          <a href="{{ route('report.monthly') }}" class="font-semibold opacity-90 hover:opacity-100 hover:underline">Report Monthly</a>
-          <a href="{{ route('pengunjung.pending') }}" class="font-semibold opacity-90 hover:opacity-100 hover:underline">Pembayaran Pending</a>
+          <a href="{{ route('pembayaran.konfirmasi') }}" class="font-semibold opacity-90 hover:opacity-100 hover:underline">Pembayaran</a>
+          <a href="{{ route('report.monthly') }}" class="font-semibold opacity-90 hover:opacity-100 hover:underline">Report</a>
         </nav>
 
         <!-- Logout Button -->
@@ -68,6 +71,53 @@
       @yield('content')
     </div>
   </main>
+
+  <script>
+  document.addEventListener('DOMContentLoaded', function() {
+    @if(session('success'))
+      Swal.fire({
+        icon: 'success',
+        title: 'Berhasil!',
+        text: '{{ session('success') }}',
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000,
+        timerProgressBar: true,
+        didOpen: (toast) => {
+          toast.addEventListener('mouseenter', Swal.stopTimer)
+          toast.addEventListener('mouseleave', Swal.resumeTimer)
+        }
+      });
+    @endif
+
+    @if(session('error'))
+      Swal.fire({
+        icon: 'error',
+        title: 'Gagal!',
+        text: '{{ session('error') }}',
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 4000,
+        timerProgressBar: true
+      });
+    @endif
+
+    @if($errors->any())
+      Swal.fire({
+        icon: 'error',
+        title: 'Validation Error',
+        html: '<ul style="text-align:left;margin:0;padding-left:20px">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul>',
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 5000,
+        timerProgressBar: true
+      });
+    @endif
+  });
+  </script>
 
 </body>
 </html>

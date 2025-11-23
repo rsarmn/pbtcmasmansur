@@ -194,7 +194,7 @@
 <body>
     <div class="container">
         <div class="print-instruction no-print">
-            <strong>📄 Tekan CTRL+P (atau CMD+P) untuk print ke PDF</strong>
+            <strong>Tekan CTRL+P (atau CMD+P) untuk print ke PDF</strong>
             <p>Pilih "Save as PDF" atau "Microsoft Print to PDF" sebagai printer, lalu klik Save</p>
         </div>
 
@@ -241,10 +241,19 @@
                 @foreach($bookings as $i => $b)
                 <tr>
                     <td style="text-align: center;">{{ $i + 1 }}</td>
-                    <td>{{ $b->nama }}</td>
                     <td>
-                        <span class="badge badge-{{ $b->jenis_tamu }}">
-                            {{ $b->jenis_tamu === 'corporate' ? 'Corporate' : 'Individu' }}
+                        @if(strtolower($b->jenis_tamu) == 'corporate' && $b->nama_pic)
+                            <strong>{{ $b->nama_pic }}</strong>
+                            @if($b->nama)
+                                <br><small style="color:#666">{{ $b->nama }}</small>
+                            @endif
+                        @else
+                            {{ $b->nama }}
+                        @endif
+                    </td>
+                    <td>
+                        <span class="badge badge-{{ strtolower($b->jenis_tamu) }}">
+                            {{ ucfirst($b->jenis_tamu) }}
                         </span>
                     </td>
                     <td>{{ \Carbon\Carbon::parse($b->check_in)->format('d M Y') }}</td>
@@ -261,8 +270,8 @@
                             @endif
                         </span>
                     </td>
-                    <td>{{ $b->no_telp ?? '-' }}</td>
-                    <td style="text-align: center;">{{ $b->jumlah_kamar }}</td>
+                    <td>{{ $b->no_telp_pic ?? $b->no_telp ?? '-' }}</td>
+                    <td style="text-align: center;">{{ $b->jumlah_kamar ?? 1 }}</td>
                 </tr>
                 @endforeach
             </tbody>
@@ -270,17 +279,17 @@
 
         <div class="summary">
             <p><strong>Ringkasan Booking:</strong></p>
-            <p>• Total Booking: {{ $bookings->count() }} transaksi</p>
-            <p>• Corporate: {{ $bookings->where('jenis_tamu', 'corporate')->count() }} | Individu: {{ $bookings->where('jenis_tamu', 'individu')->count() }}</p>
-            <p>• Pending: {{ $bookings->where('payment_status', 'pending')->count() }} | Konfirmasi: {{ $bookings->where('payment_status', 'konfirmasi_booking')->count() }} | Paid: {{ $bookings->where('payment_status', 'paid')->count() }} | Lunas: {{ $bookings->where('payment_status', 'lunas')->count() }} | Rejected: {{ $bookings->where('payment_status', 'rejected')->count() }}</p>
+            <p>Total Booking: {{ $bookings->count() }} transaksi</p>
+            <p>Corporate: {{ $bookings->filter(function($b) { return strtolower($b->jenis_tamu) == 'corporate'; })->count() }} | Individu: {{ $bookings->filter(function($b) { return strtolower($b->jenis_tamu) == 'individu'; })->count() }}</p>
+            <p>Pending: {{ $bookings->where('payment_status', 'pending')->count() }} | Konfirmasi: {{ $bookings->where('payment_status', 'konfirmasi_booking')->count() }} | Paid: {{ $bookings->where('payment_status', 'paid')->count() }} | Lunas: {{ $bookings->where('payment_status', 'lunas')->count() }} | Rejected: {{ $bookings->where('payment_status', 'rejected')->count() }}</p>
         </div>
         @else
         <p style="text-align: center; padding: 40px; color: #999;">Tidak ada data booking untuk bulan ini</p>
         @endif
 
         <div class="no-print">
-            <button onclick="window.print()">🖨️ Print / Save as PDF</button>
-            <button class="secondary" onclick="window.close()">❌ Tutup</button>
+            <button onclick="window.print()">Print / Save as PDF</button>
+            <button class="secondary" onclick="window.close()">Tutup</button>
         </div>
     </div>
 

@@ -65,16 +65,19 @@
     
   </div>
 
-  <!-- Quick Access Buttons (tanpa ikon) -->
+  <!-- Quick Access Buttons -->
   <div class="mt-6 flex flex-wrap gap-3 justify-center">
-    <a href="{{ route('pengunjung.pending') }}" class="px-6 py-3 bg-orange-500 text-white rounded-lg font-semibold hover:bg-orange-600 transition shadow-lg">
-      Konfirmasi Pembayaran & Booking
+    <a href="{{ route('kamar.index') }}" class="px-6 py-3 bg-purple-500 text-white rounded-lg font-semibold hover:bg-purple-600 transition shadow-lg">
+      Data Kamar
     </a>
-    <a href="{{ route('pengunjung.index') }}" class="px-6 py-3 bg-blue-500 text-white rounded-lg font-semibold hover:bg-blue-600 transition">
+    <a href="{{ route('pengunjung.index') }}" class="px-6 py-3 bg-blue-500 text-white rounded-lg font-semibold hover:bg-blue-600 transition shadow-lg">
       Data Pengunjung
     </a>
-    <a href="{{ route('kamar.index') }}" class="px-6 py-3 bg-purple-500 text-white rounded-lg font-semibold hover:bg-purple-600 transition">
-      Data Kamar
+    <a href="{{ route('pembayaran.konfirmasi') }}" class="px-6 py-3 bg-orange-500 text-white rounded-lg font-semibold hover:bg-orange-600 transition shadow-lg">
+      Pembayaran
+    </a>
+    <a href="{{ route('report.monthly') }}" class="px-6 py-3 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600 transition shadow-lg">
+      Report
     </a>
   </div>
 </div>
@@ -87,8 +90,14 @@
       <ul class="divide-y">
         @forelse($recentBookings as $b)
         <li class="py-2">
-          <div class="text-sm font-medium">{{ $b->nama }}</div>
-          <div class="text-xs text-gray-500">Booked: {{ $b->nomor_kamar }} — {{ \Illuminate\Support\Carbon::parse($b->created_at)->format('d M Y H:i') }}</div>
+          <div class="text-sm font-medium">
+            @if(strtolower($b->jenis_tamu) == 'corporate')
+              {{ $b->nama_pic ?? 'PIC' }} <span class="text-xs text-gray-500">({{ $b->nama }})</span>
+            @else
+              {{ $b->nama }}
+            @endif
+          </div>
+          <div class="text-xs text-gray-500">Booked: {{ $b->kode_kamar ?? '-' }} — {{ \Illuminate\Support\Carbon::parse($b->created_at)->format('d M Y H:i') }}</div>
         </li>
         @empty
         <li class="py-2 text-sm text-gray-500">No recent activity.</li>
@@ -101,7 +110,14 @@
       <div class="mt-3 text-sm font-medium">Upcoming Check-outs</div>
       <ul class="mt-2 text-sm text-gray-700">
         @forelse($upcomingCheckouts as $u)
-        <li class="py-1">{{ $u->nama }} — {{ $u->check_out }}</li>
+        <li class="py-1">
+          @if(strtolower($u->jenis_tamu) == 'corporate')
+            {{ $u->nama_pic ?? 'PIC' }}
+          @else
+            {{ $u->nama }}
+          @endif
+          — {{ $u->check_out }}
+        </li>
         @empty
         <li class="text-gray-500 py-1">None</li>
         @endforelse

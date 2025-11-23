@@ -76,7 +76,7 @@
     </div>
 
     <div style="display:flex;gap:12px">
-      <button type="submit" class="btn-primary">✓ Proses Check-In</button>
+      <button type="submit" class="btn-primary">Proses Check-In</button>
       <a href="{{ route('pengunjung.show', $p->id) }}" class="btn-primary" style="background:#6b7280;text-decoration:none;display:inline-block">Batal</a>
     </div>
   </form>

@@ -13,7 +13,8 @@ class PengunjungController extends Controller
     }
 
     public function index(){
-        $pengunjungs = Pengunjung::latest()->get();
+        // Hanya tampilkan pengunjung yang sudah approved (paid/lunas)
+        $pengunjungs = Pengunjung::whereIn('payment_status', ['paid', 'lunas'])->latest()->get();
         return view('admin.pengunjung', compact('pengunjungs'));
     }
 
@@ -202,6 +203,8 @@ class PengunjungController extends Controller
             'kode_kamar.*' => 'string',
             'jumlah_kamar' => 'nullable|integer|min:1',
             'payment_status' => 'nullable|in:pending,konfirmasi_booking,paid,lunas,rejected',
+            'kebutuhan_snack' => 'nullable|string',
+            'kebutuhan_makan' => 'nullable|string',
         ]);
 
         // Convert array kode_kamar to comma-separated string
@@ -235,9 +238,24 @@ class PengunjungController extends Controller
             $r->merge(['kode_kamar' => implode(',', $kamarIds)]);
         }
 
+        // Validate JSON for kebutuhan_snack and kebutuhan_makan
+        if ($r->kebutuhan_snack && $r->kebutuhan_snack !== '[]') {
+            $decoded = json_decode($r->kebutuhan_snack, true);
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                return back()->withErrors(['kebutuhan_snack' => 'Format data snack tidak valid'])->withInput();
+            }
+        }
+        
+        if ($r->kebutuhan_makan && $r->kebutuhan_makan !== '[]') {
+            $decoded = json_decode($r->kebutuhan_makan, true);
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                return back()->withErrors(['kebutuhan_makan' => 'Format data makan tidak valid'])->withInput();
+            }
+        }
+
         $p->update($r->all());
         
-        return redirect()->route('pengunjung.index')->with('success', 'Data pengunjung berhasil diupdate');
+        return redirect()->route('pengunjung.show', $id)->with('success', 'Data pengunjung berhasil diupdate');
     }
 
     public function showCheckin($id)

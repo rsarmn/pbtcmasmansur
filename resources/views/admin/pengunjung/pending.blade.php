@@ -173,12 +173,19 @@
         <tr>
           <td>{{ $loop->iteration }}</td>
           <td>
-            <strong>{{ $p->nama }}</strong><br>
-            <span class="text-sm text-muted">{{ $p->jenis_tamu }}</span>
+            @if(strtolower($p->jenis_tamu) == 'corporate')
+              <strong>{{ $p->nama_pic ?? 'PIC' }}</strong>
+              @if($p->nama)
+                <br><span class=\"text-sm text-muted\">{{ $p->nama }}</span>
+              @endif
+            @else
+              <strong>{{ $p->nama }}</strong>
+            @endif
+            <br><span style=\"background:{{ strtolower($p->jenis_tamu) == 'corporate' ? '#28a745' : '#007bff' }};color:#fff;padding:2px 8px;border-radius:10px;font-size:11px\">{{ ucfirst($p->jenis_tamu) }}</span>
           </td>
           <td>
             @if(strtolower($p->jenis_tamu) == 'corporate')
-              {{ $p->nama_pic }}<br><span class="text-sm text-muted">{{ $p->no_telp_pic }}</span>
+              <span class=\"text-sm\">{{ $p->no_telp_pic }}</span>
             @else
               {{ $p->no_identitas }}
             @endif
@@ -195,11 +202,11 @@
               @if($wa)
                 <a href="{{ $wa }}" target="_blank" class="btn btn-chat" style="padding:6px 12px;">Chat</a>
               @endif
-              <form action="{{ route('pengunjung.reject', $p->id) }}" method="POST" onsubmit="return confirm('Tolak booking ini?')">
+              <form action="{{ route('pengunjung.reject', $p->id) }}" method="POST" class="reject-form">
                 @csrf
                 <button class="btn btn-danger" type="submit" style="padding:6px 12px;">Tolak</button>
               </form>
-              <form action="{{ route('pengunjung.approve', $p->id) }}" method="POST">
+              <form action="{{ route('pengunjung.approve', $p->id) }}" method="POST" class="approve-form">
                 @csrf
                 <button class="btn btn-primary" type="submit" style="padding:6px 12px;">Konfirmasi</button>
               </form>
@@ -225,7 +232,7 @@
                   <p><b>Check-in:</b> {{ $p->check_in }}</p>
                   <p><b>Check-out:</b> {{ $p->check_out }}</p>
                   <p><b>Jumlah Kamar:</b> {{ $p->jumlah_kamar ?? '-' }}</p>
-                  <p><b>Kamar Assigned:</b> {{ $p->kode_kamar ?? $p->nomor_kamar ?? 'Belum di-assign' }}</p>
+                  <p><b>Kamar Assigned:</b> {{ $p->kode_kamar ?? 'Belum di-assign' }}</p>
                 </div>
               </div>
 
@@ -309,7 +316,7 @@
                     </select>
                     <p class="text-sm text-muted mt-12">{{ $availableRooms->count() }} kamar tersedia</p>
                   </div>
-                  <button class="btn btn-success" type="submit">✓ Approve & Assign</button>
+                  <button class="btn btn-success" type="submit">Approve & Assign</button>
                 </form>
               </div>
             </div>
@@ -324,6 +331,52 @@
 </div>
 
 <script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Handle approve confirmation
+  document.querySelectorAll('.approve-form').forEach(form => {
+    form.addEventListener('submit', function(e) {
+      e.preventDefault();
+      Swal.fire({
+        title: '✅ Konfirmasi Pembayaran?',
+        text: 'Booking akan disetujui dan kamar akan di-assign',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#2563eb',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Ya, Konfirmasi!',
+        cancelButtonText: '✗ Batal',
+        reverseButtons: true
+      }).then((result) => {
+        if (result.isConfirmed) {
+          form.submit();
+        }
+      });
+    });
+  });
+
+  // Handle reject confirmation
+  document.querySelectorAll('.reject-form').forEach(form => {
+    form.addEventListener('submit', function(e) {
+      e.preventDefault();
+      Swal.fire({
+        title: 'Tolak Booking?',
+        text: 'Booking akan ditolak permanen',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc2626',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: '✗ Ya, Tolak!',
+        cancelButtonText: 'Batal',
+        reverseButtons: true
+      }).then((result) => {
+        if (result.isConfirmed) {
+          form.submit();
+        }
+      });
+    });
+  });
+});
+
 function previewFile(id) {
   const fileInput = document.getElementById('bukti_file_' + id);
   const previewContainer = document.getElementById('preview_' + id);

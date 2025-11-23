@@ -82,22 +82,38 @@
       @forelse($bookings as $i => $b)
       <tr>
         <td style="text-align: center;">{{ $i+1 }}</td>
-        <td><strong>{{ $b->nama }}</strong></td>
         <td>
-          <span class="badge {{ $b->jenis_tamu == 'Corporate' ? 'badge-corporate' : 'badge-individu' }}">
-            {{ $b->jenis_tamu }}
+          <strong>
+            @if(strtolower($b->jenis_tamu) == 'corporate' && $b->nama_pic)
+              {{ $b->nama_pic }}
+              @if($b->nama)
+                <br><small style="color:#666;font-weight:normal">{{ $b->nama }}</small>
+              @endif
+            @else
+              {{ $b->nama }}
+            @endif
+          </strong>
+        </td>
+        <td>
+          <span class="badge {{ strtolower($b->jenis_tamu) == 'corporate' ? 'badge-corporate' : 'badge-individu' }}">
+            {{ ucfirst($b->jenis_tamu) }}
           </span>
         </td>
         <td>{{ \Carbon\Carbon::parse($b->check_in)->format('d M Y') }}</td>
         <td>{{ \Carbon\Carbon::parse($b->check_out)->format('d M Y') }}</td>
-        <td>{{ $b->kode_kamar ?? $b->nomor_kamar ?? '-' }}</td>
+        <td>{{ $b->kode_kamar ?? '-' }}</td>
         <td>
           <span class="badge 
             @if($b->payment_status == 'lunas' || $b->payment_status == 'paid') badge-lunas
             @elseif($b->payment_status == 'pending') badge-pending
             @elseif($b->payment_status == 'rejected') badge-rejected
             @endif">
-            {{ $b->payment_status_label }}
+            @if($b->payment_status == 'lunas' || $b->payment_status == 'paid') Lunas
+            @elseif($b->payment_status == 'pending') Pending
+            @elseif($b->payment_status == 'konfirmasi_booking') Konfirmasi
+            @elseif($b->payment_status == 'rejected') Rejected
+            @else {{ ucfirst($b->payment_status) }}
+            @endif
           </span>
         </td>
         <td>{{ $b->no_telp_pic ?? $b->no_telp ?? '-' }}</td>
@@ -118,8 +134,8 @@
   <div style="margin-top: 20px; padding: 10px; background: #f9f9f9; border: 1px solid #ddd;">
     <strong>Ringkasan:</strong><br>
     Total Booking: {{ $bookings->count() }} | 
-    Corporate: {{ $bookings->where('jenis_tamu', 'Corporate')->count() }} | 
-    Individu: {{ $bookings->where('jenis_tamu', 'Individu')->count() }} |
+    Corporate: {{ $bookings->filter(function($b) { return strtolower($b->jenis_tamu) == 'corporate'; })->count() }} | 
+    Individu: {{ $bookings->filter(function($b) { return strtolower($b->jenis_tamu) == 'individu'; })->count() }} |
     Lunas: {{ $bookings->whereIn('payment_status', ['lunas', 'paid'])->count() }}
   </div>
   @endif
