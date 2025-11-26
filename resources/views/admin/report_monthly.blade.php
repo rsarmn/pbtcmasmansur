@@ -267,10 +267,24 @@
             <td>{{ $b->kode_kamar ?? $b->nomor_kamar ?? '-' }}</td>
             <td>
               @php
-                $kamarIds = explode(',', $b->kode_kamar ?? '');
+                // Normalize raw room identifiers: prefer kode_kamar, fallback to nomor_kamar
+                $raw = $b->kode_kamar ?? $b->nomor_kamar ?? '';
+                $kamarIds = array_filter(array_map('trim', explode(',', $raw)));
                 $jenisKamars = [];
                 foreach ($kamarIds as $kamarId) {
-                  $kamar = \App\Models\Kamar::where('kode_kamar', trim($kamarId))->first();
+                  $kamar = null;
+                  if ($kamarId !== '') {
+                    // Try lookup by kode_kamar
+                    $kamar = \App\Models\Kamar::where('kode_kamar', $kamarId)->first();
+                    // Fallback: if numeric, try find by id
+                    if (!$kamar && is_numeric($kamarId)) {
+                      $kamar = \App\Models\Kamar::find(intval($kamarId));
+                    }
+                    // Last resort: try matching nomor_kamar column
+                    if (!$kamar) {
+                      $kamar = \App\Models\Kamar::where('nomor_kamar', $kamarId)->first();
+                    }
+                  }
                   if ($kamar && !in_array($kamar->jenis_kamar, $jenisKamars)) {
                     $jenisKamars[] = $kamar->jenis_kamar;
                   }
