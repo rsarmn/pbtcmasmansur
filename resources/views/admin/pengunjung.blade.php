@@ -83,6 +83,9 @@ document.addEventListener('DOMContentLoaded', function() {
           <th>Check-in</th>
           <th>Check-out</th>
           <th>Kode Kamar</th>
+          <th>Kamar Dipilih</th>
+          <th>Jumlah Kamar</th>
+          <th>Jumlah Orang</th>
           <th>Bayar</th>
           <th>Aksi</th>
         </tr>
@@ -106,6 +109,21 @@ document.addEventListener('DOMContentLoaded', function() {
           <td>{{ $p->check_in }}</td>
           <td>{{ $p->check_out }}</td>
           <td>{{ $p->kode_kamar }}</td>
+          <td>
+            @php
+              $kamarIds = explode(',', $p->kode_kamar ?? '');
+              $jenisKamars = [];
+              foreach ($kamarIds as $kamarId) {
+                $kamar = \App\Models\Kamar::where('kode_kamar', trim($kamarId))->first();
+                if ($kamar && !in_array($kamar->jenis_kamar, $jenisKamars)) {
+                  $jenisKamars[] = $kamar->jenis_kamar;
+                }
+              }
+            @endphp
+            <strong>{{ implode(', ', $jenisKamars) ?: '-' }}</strong>
+          </td>
+          <td><strong>{{ $p->jumlah_kamar ?? '-' }}</strong></td>
+          <td><strong>{{ $p->jumlah_peserta ?? '-' }}</strong></td>
           <td>{{ $p->payment_status_label }}</td>
           <td>
             @php
@@ -130,7 +148,7 @@ document.addEventListener('DOMContentLoaded', function() {
           </td>
         </tr>
         @empty
-        <tr><td colspan="8" style="text-align:center;color:#999;padding:24px">Belum ada data.</td></tr>
+        <tr><td colspan="12" style="text-align:center;color:#999;padding:24px">Belum ada data.</td></tr>
         @endforelse
       </tbody>
     </table>

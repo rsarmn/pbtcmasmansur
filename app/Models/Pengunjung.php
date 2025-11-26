@@ -10,7 +10,7 @@ class Pengunjung extends Model
       'nama','no_identitas','identity_type','jenis_tamu','check_in','check_out','kode_kamar',
       'asal_persyarikatan','tanggal_persyarikatan','nama_kegiatan','nama_pic','no_telp_pic','no_telp',
       'jumlah_peserta','jumlah_kamar','special_request',
-      'payment_status','kebutuhan_snack','kebutuhan_makan','bukti_identitas','bukti_pembayaran'
+      'payment_status','kebutuhan_snack','kebutuhan_makan','bukti_identitas','bukti_pembayaran','total_harga'
     ];
 
       // Human readable payment status label

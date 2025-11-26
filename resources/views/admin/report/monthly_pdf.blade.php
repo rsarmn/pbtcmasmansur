@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <title>{{ $meta['title'] ?? 'Laporan Bulanan' }}</title>
   <style>
+    @page { size: A4 landscape; }
     body { font-family: Arial, sans-serif; font-size: 11px; color: #222; }
     .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #7b1a2e; padding-bottom: 10px; }
     .header h1 { margin: 0; font-size: 18px; color: #7b1a2e; }
@@ -67,15 +68,23 @@
   <table>
     <thead>
       <tr>
-        <th style="width: 4%;">No</th>
-        <th style="width: 18%;">Nama</th>
-        <th style="width: 10%;">Jenis</th>
-        <th style="width: 12%;">Check-in</th>
-        <th style="width: 12%;">Check-out</th>
-        <th style="width: 10%;">Kamar</th>
-        <th style="width: 12%;">Status</th>
-        <th style="width: 12%;">No. Telp</th>
-        <th style="width: 10%;">Jml Kamar</th>
+        <th style="width: 3%;">No</th>
+        <th style="width: 10%;">Nama</th>
+        <th style="width: 8%;">Jenis</th>
+        <th style="width: 8%;">Check-in</th>
+        <th style="width: 8%;">Check-out</th>
+        <th style="width: 8%;">Kamar Kode</th>
+        <th style="width: 10%;">Kamar Dipilih</th>
+        <th style="width: 6%;">Jml Kamar</th>
+        <th style="width: 6%;">Jml Orang</th>
+        <th style="width: 8%;">Snack</th>
+        <th style="width: 8%;">Makan</th>
+        <th style="width: 10%;">Total Harga</th>
+        <th style="width: 8%;">Status</th>
+        <th style="width: 6%;">Identitas</th>
+        <th style="width: 6%;">Bukti</th>
+        <th style="width: 10%;">Asal Persyarikatan</th>
+        <th style="width: 8%;">No. Telp</th>
       </tr>
     </thead>
     <tbody>
@@ -103,6 +112,42 @@
         <td>{{ \Carbon\Carbon::parse($b->check_out)->format('d M Y') }}</td>
         <td>{{ $b->kode_kamar ?? '-' }}</td>
         <td>
+          @php
+            $kamarIds = explode(',', $b->kode_kamar ?? '');
+            $jenisKamars = [];
+            foreach ($kamarIds as $kamarId) {
+              $kamar = \App\Models\Kamar::where('kode_kamar', trim($kamarId))->first();
+              if ($kamar && !in_array($kamar->jenis_kamar, $jenisKamars)) {
+                $jenisKamars[] = $kamar->jenis_kamar;
+              }
+            }
+          @endphp
+          {{ implode(', ', $jenisKamars) ?: '-' }}
+        </td>
+        <td style="text-align: center;">{{ $b->jumlah_kamar ?? '-' }}</td>
+        <td style="text-align: center;">{{ $b->jumlah_peserta ?? '-' }}</td>
+        <td>
+          @php
+            $snacks = json_decode($b->kebutuhan_snack ?? '[]', true);
+            $snackNames = array_column($snacks, 'nama');
+          @endphp
+          {{ implode(', ', $snackNames) ?: '-' }}
+        </td>
+        <td>
+          @php
+            $makans = json_decode($b->kebutuhan_makan ?? '[]', true);
+            $makanNames = array_column($makans, 'nama');
+          @endphp
+          {{ implode(', ', $makanNames) ?: '-' }}
+        </td>
+        <td>
+          @if($b->total_harga)
+            Rp {{ number_format($b->total_harga, 0, ',', '.') }}
+          @else
+            -
+          @endif
+        </td>
+        <td>
           <span class="badge 
             @if($b->payment_status == 'lunas' || $b->payment_status == 'paid') badge-lunas
             @elseif($b->payment_status == 'pending') badge-pending
@@ -116,12 +161,42 @@
             @endif
           </span>
         </td>
+        <td style="text-align: center;">
+          @php
+            $relId = \Illuminate\Support\Str::startsWith($b->bukti_identitas ?? '', 'public/') ? substr($b->bukti_identitas, 7) : ($b->bukti_identitas ?? '');
+          @endphp
+          @if($relId && Storage::disk('public')->exists($relId))
+            @php $filePath = Storage::disk('public')->path($relId); $ext = strtolower(pathinfo($filePath, PATHINFO_EXTENSION)); @endphp
+            @if(in_array($ext, ['jpg','jpeg','png','gif']))
+              <img src="{{ 'file://'.$filePath }}" style="max-width:100px;max-height:80px;object-fit:cover;display:block;margin:0 auto">
+            @else
+              <small>{{ strtoupper($ext) }}</small>
+            @endif
+          @else
+            <span style="color:#999">-</span>
+          @endif
+        </td>
+        <td style="text-align: center;">
+          @php
+            $relPay = \Illuminate\Support\Str::startsWith($b->bukti_pembayaran ?? '', 'public/') ? substr($b->bukti_pembayaran, 7) : ($b->bukti_pembayaran ?? '');
+          @endphp
+          @if($relPay && Storage::disk('public')->exists($relPay))
+            @php $filePath2 = Storage::disk('public')->path($relPay); $ext2 = strtolower(pathinfo($filePath2, PATHINFO_EXTENSION)); @endphp
+            @if(in_array($ext2, ['jpg','jpeg','png','gif']))
+              <img src="{{ 'file://'.$filePath2 }}" style="max-width:100px;max-height:80px;object-fit:cover;display:block;margin:0 auto">
+            @else
+              <small>{{ strtoupper($ext2) }}</small>
+            @endif
+          @else
+            <span style="color:#999">-</span>
+          @endif
+        </td>
+        <td>{{ $b->asal_persyarikatan ?? '-' }}</td>
         <td>{{ $b->no_telp_pic ?? $b->no_telp ?? '-' }}</td>
-        <td style="text-align: center;">{{ $b->jumlah_kamar ?? 1 }}</td>
       </tr>
       @empty
       <tr>
-        <td colspan="9" style="text-align: center; padding: 20px; color: #999;">
+        <td colspan="17" style="text-align: center; padding: 20px; color: #999;">
           Tidak ada booking pada periode ini
         </td>
       </tr>

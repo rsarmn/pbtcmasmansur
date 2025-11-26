@@ -178,28 +178,29 @@
         <span class="fw-bold">{{ number_format($selectedRoom->harga,0,',','.') }}/malam</span>
       </div>
 
-      <input type="hidden" name="kode_kamar" value="{{ $selectedRoom->id }}">
+      <!-- selected room is already present in the multi-select below, no hidden input needed -->
+      <div class="mb-3">
+        <label>Pilih Kamar Tambahan</label>
+        <select name="kode_kamar[]" multiple class="form-control" size="6">
+          @foreach($kamars as $k)
+            <option value="{{ $k->kode_kamar }}" {{ $k->kode_kamar == $selectedRoom->kode_kamar ? 'selected' : '' }}>
+              {{ $k->kode_kamar }} - {{ $k->jenis_kamar }} ({{ number_format($k->harga,0,',','.') }}/malam)
+            </option>
+          @endforeach
+        </select>
+        <small class="text-muted">Tekan Ctrl (Cmd di Mac) untuk pilih beberapa kamar</small>
+      </div>
+
       <div class="row">
         <div class="col-md-6 mb-3">
-            <label>Jumlah Kamar</label>
+            <label>Jumlah Peserta</label>
             <input 
                 type="number" 
-                name="jumlah_kamar" 
+                name="jumlah_peserta" 
                 class="form-control"
                 min="1"
                 required
-                placeholder="Jumlah Kamar">
-        </div>
-
-      <div class="col-md-6 mb-3">
-          <label>Jumlah Peserta</label>
-          <input 
-              type="number" 
-              name="jumlah_peserta" 
-              class="form-control"
-              min="1"
-              required
-              placeholder="Jumlah Peserta">
+                placeholder="Jumlah Peserta">
         </div>
       </div>
 

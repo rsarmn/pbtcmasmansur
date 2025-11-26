@@ -30,7 +30,7 @@ radios.forEach((radio, index) => {
 
 // Jalankan Swiper dulu
 const swiper = new Swiper(".card-wrapper", {
-    loop: true,
+
     spaceBetween: 30,
     pagination: {
         el: ".swiper-pagination",

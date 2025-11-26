@@ -14,12 +14,13 @@
     </div>
   @endif
 
-  <form action="{{ route('pengunjung.update', $p->id) }}" method="POST" style="background:#fff;padding:24px;border-radius:8px;max-width:800px">
+  <form action="{{ route('pengunjung.update', $p->id) }}" method="POST" style="background:#fff;padding:24px;border-radius:8px;max-width:800px" id="editForm">
     @csrf
     
     <div style="margin-bottom:16px">
-      <label style="display:block;margin-bottom:4px;font-weight:600">Nama <span style="color:red">*</span></label>
-      <input type="text" name="nama" value="{{ old('nama', $p->nama) }}" required style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px">
+      <label style="display:block;margin-bottom:4px;font-weight:600">Nama PIC <span style="color:red">*</span></label>
+      <input type="text" name="nama_pic" value="{{ old('nama_pic', $p->nama_pic ?: $p->nama) }}" required style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px">
+      <input type="hidden" name="nama" value="{{ $p->nama_pic ?: $p->nama }}">
     </div>
 
     <div style="margin-bottom:16px">
@@ -33,6 +34,12 @@
     <div style="margin-bottom:16px">
       <label style="display:block;margin-bottom:4px;font-weight:600">No Identitas</label>
       <input type="text" name="no_identitas" value="{{ old('no_identitas', $p->no_identitas) }}" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px">
+    </div>
+
+    <div style="margin-bottom:16px">
+      <label style="display:block;margin-bottom:4px;font-weight:600">No HP PIC</label>
+      <input type="text" name="no_telp_pic" value="{{ old('no_telp_pic', $p->no_telp_pic ?: $p->no_telp) }}" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px">
+      <input type="hidden" name="no_telp" value="{{ $p->no_telp_pic ?: $p->no_telp }}">
     </div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
@@ -92,28 +99,12 @@
       </select>
     </div>
 
-    <div style="margin-bottom:16px">
-      <label style="display:block;margin-bottom:4px;font-weight:600">No Telepon</label>
-      <input type="text" name="no_telp" value="{{ old('no_telp', $p->no_telp) }}" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px">
-    </div>
-
-    <!-- Corporate Fields -->
     <div style="border-top:2px solid #e5e7eb;margin:24px 0;padding-top:24px">
-      <h4 style="margin-bottom:16px">Data Corporate (opsional)</h4>
+      <h4 style="margin-bottom:16px">Data Kegiatan</h4>
       
       <div style="margin-bottom:16px">
         <label style="display:block;margin-bottom:4px;font-weight:600">Nama Kegiatan</label>
         <input type="text" name="nama_kegiatan" value="{{ old('nama_kegiatan', $p->nama_kegiatan) }}" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px">
-      </div>
-
-      <div style="margin-bottom:16px">
-        <label style="display:block;margin-bottom:4px;font-weight:600">Nama PIC</label>
-        <input type="text" name="nama_pic" value="{{ old('nama_pic', $p->nama_pic) }}" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px">
-      </div>
-
-      <div style="margin-bottom:16px">
-        <label style="display:block;margin-bottom:4px;font-weight:600">No HP PIC</label>
-        <input type="text" name="no_telp_pic" value="{{ old('no_telp_pic', $p->no_telp_pic) }}" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px">
       </div>
 
       <div style="margin-bottom:16px">
@@ -127,7 +118,6 @@
       </div>
     </div>
 
-    <!-- Special Requests -->
     <div style="border-top:2px solid #e5e7eb;margin:24px 0;padding-top:24px">
       <h4 style="margin-bottom:16px">Kebutuhan & Request</h4>
       
@@ -138,122 +128,100 @@
 
       <div style="margin-bottom:16px">
         <label style="display:block;margin-bottom:8px;font-weight:600">Kebutuhan Snack</label>
-        <button type="button" class="dropdown-toggle" onclick="toggleDropdown('snack-dropdown')" style="width:100%;padding:12px 16px;background:linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);border:2px solid #dee2e6;border-radius:8px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-weight:600;color:#495057">
-          <span>Pilih Snack</span>
-          <span class="arrow" style="transition:transform 0.3s;font-size:12px">▼</span>
-        </button>
-        <div id="snack-dropdown" class="dropdown-content" style="display:none;margin-top:8px;padding:12px;background:#fff;border:1px solid #e5e7eb;border-radius:8px">
-          @php
-            $selectedSnacks = [];
-            try {
-              $selectedSnacks = is_string($p->kebutuhan_snack) ? json_decode($p->kebutuhan_snack, true) : $p->kebutuhan_snack;
-              if (!is_array($selectedSnacks)) $selectedSnacks = [];
-            } catch (\Exception $e) {}
-            $snackMenus = [
-              ['id' => 1, 'nama' => 'Kue Basah (per porsi)', 'harga' => 5000],
-              ['id' => 3, 'nama' => 'Pisang Goreng (per porsi)', 'harga' => 8000],
-              ['id' => 4, 'nama' => 'Roti Bakar', 'harga' => 10000],
-              ['id' => 5, 'nama' => 'Kue Kering', 'harga' => 15000]
-            ];
-          @endphp
-          @foreach($snackMenus as $menu)
-            @php
-              $checked = false;
-              $currentPorsi = 0;
-              foreach($selectedSnacks as $s) {
-                if(isset($s['menu_id']) && $s['menu_id'] == $menu['id']) {
-                  $checked = true;
-                  $currentPorsi = $s['porsi'] ?? 0;
-                  break;
-                }
+        @php
+          $selectedSnacks = [];
+          $raw = $p->kebutuhan_snack ?? '';
+          if (is_string($raw) && $raw !== '') {
+            // Try JSON decode first
+            $decoded = json_decode($raw, true);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+              $first = reset($decoded);
+              if (is_string($first)) {
+                // Array of strings: ["Kue Basah", "Roti Bakar"]
+                $selectedSnacks = array_filter($decoded, fn($v) => is_string($v) && $v !== '');
+              } elseif (is_array($first) && isset($first['nama'])) {
+                // Array of objects: [{"nama": "Kue Basah"}, ...]
+                $selectedSnacks = array_column($decoded, 'nama');
               }
-            @endphp
-            <div style="padding:10px;margin-bottom:8px;background:#f8f9fa;border-radius:6px">
-              <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-                <input type="checkbox" 
-                       class="snack-checkbox" 
-                       data-menu-id="{{ $menu['id'] }}" 
-                       data-nama="{{ $menu['nama'] }}" 
-                       data-harga="{{ $menu['harga'] }}"
-                       {{ $checked ? 'checked' : '' }}
-                       onchange="updateSnackSelection()"
-                       style="width:18px;height:18px">
-                <span style="flex:1;font-weight:600">{{ $menu['nama'] }}</span>
-                <span style="color:#666">Rp {{ number_format($menu['harga'], 0, ',', '.') }}</span>
-              </label>
-              <div class="porsi-input" style="margin-top:8px;margin-left:26px;{{ $checked ? '' : 'display:none' }}">
-                <label style="font-size:13px;color:#666;margin-right:8px">Jumlah Porsi:</label>
-                <input type="number" 
-                       class="porsi-{{ $menu['id'] }}" 
-                       value="{{ $currentPorsi }}" 
-                       min="1" 
-                       onchange="updateSnackSelection()"
-                       style="width:80px;padding:6px;border:1px solid #ddd;border-radius:4px">
-              </div>
-            </div>
+            } else {
+              // Not JSON: treat as single string or comma-separated
+              $selectedSnacks = array_map('trim', explode(',', $raw));
+              $selectedSnacks = array_filter($selectedSnacks, fn($v) => $v !== '');
+            }
+          } elseif (is_array($raw)) {
+            $first = reset($raw);
+            if (is_string($first)) {
+              $selectedSnacks = array_filter($raw, fn($v) => is_string($v) && $v !== '');
+            } elseif (is_array($first) && isset($first['nama'])) {
+              $selectedSnacks = array_column($raw, 'nama');
+            }
+          }
+          $snackOptions = [
+            'Kue Basah (per porsi)',
+            'Pisang Goreng (per porsi)',
+            'Roti Bakar',
+            'Kue Kering'
+          ];
+        @endphp
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          @foreach($snackOptions as $option)
+            <label style="display:flex;align-items:center;gap:8px;padding:12px;border:2px solid #e5e7eb;border-radius:8px;cursor:pointer;background:#f8f9fa">
+              <input type="checkbox" 
+                     name="kebutuhan_snack[]" 
+                     value="{{ $option }}"
+                     {{ in_array($option, $selectedSnacks) ? 'checked' : '' }}
+                     style="width:18px;height:18px">
+              <span style="font-weight:500">{{ $option }}</span>
+            </label>
           @endforeach
         </div>
-        <input type="hidden" name="kebutuhan_snack" id="snack-input" value="{{ old('kebutuhan_snack', $p->kebutuhan_snack) }}">
       </div>
 
       <div style="margin-bottom:16px">
         <label style="display:block;margin-bottom:8px;font-weight:600">Kebutuhan Makan</label>
-        <button type="button" class="dropdown-toggle" onclick="toggleDropdown('makan-dropdown')" style="width:100%;padding:12px 16px;background:linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);border:2px solid #dee2e6;border-radius:8px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-weight:600;color:#495057">
-          <span>Pilih Makan</span>
-          <span class="arrow" style="transition:transform 0.3s;font-size:12px">▼</span>
-        </button>
-        <div id="makan-dropdown" class="dropdown-content" style="display:none;margin-top:8px;padding:12px;background:#fff;border:1px solid #e5e7eb;border-radius:8px">
-          @php
-            $selectedMeals = [];
-            try {
-              $selectedMeals = is_string($p->kebutuhan_makan) ? json_decode($p->kebutuhan_makan, true) : $p->kebutuhan_makan;
-              if (!is_array($selectedMeals)) $selectedMeals = [];
-            } catch (\Exception $e) {}
-            $makanMenus = [
-              ['id' => 6, 'nama' => 'Nasi Box Premium', 'harga' => 30000],
-              ['id' => 8, 'nama' => 'Prasmanan (per orang)', 'harga' => 35000],
-              ['id' => 9, 'nama' => 'Nasi Box Standar', 'harga' => 25000],
-              ['id' => 10, 'nama' => 'Paket Makan Siang', 'harga' => 28000]
-            ];
-          @endphp
-          @foreach($makanMenus as $menu)
-            @php
-              $checked = false;
-              $currentPorsi = 0;
-              foreach($selectedMeals as $m) {
-                if(isset($m['menu_id']) && $m['menu_id'] == $menu['id']) {
-                  $checked = true;
-                  $currentPorsi = $m['porsi'] ?? 0;
-                  break;
-                }
+        @php
+          $selectedMeals = [];
+          $raw = $p->kebutuhan_makan ?? '';
+          if (is_string($raw) && $raw !== '') {
+            $decoded = json_decode($raw, true);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+              $first = reset($decoded);
+              if (is_string($first)) {
+                $selectedMeals = array_filter($decoded, fn($v) => is_string($v) && $v !== '');
+              } elseif (is_array($first) && isset($first['nama'])) {
+                $selectedMeals = array_column($decoded, 'nama');
               }
-            @endphp
-            <div style="padding:10px;margin-bottom:8px;background:#f8f9fa;border-radius:6px">
-              <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-                <input type="checkbox" 
-                       class="makan-checkbox" 
-                       data-menu-id="{{ $menu['id'] }}" 
-                       data-nama="{{ $menu['nama'] }}" 
-                       data-harga="{{ $menu['harga'] }}"
-                       {{ $checked ? 'checked' : '' }}
-                       onchange="updateMakanSelection()"
-                       style="width:18px;height:18px">
-                <span style="flex:1;font-weight:600">{{ $menu['nama'] }}</span>
-                <span style="color:#666">Rp {{ number_format($menu['harga'], 0, ',', '.') }}</span>
-              </label>
-              <div class="porsi-input" style="margin-top:8px;margin-left:26px;{{ $checked ? '' : 'display:none' }}">
-                <label style="font-size:13px;color:#666;margin-right:8px">Jumlah Porsi:</label>
-                <input type="number" 
-                       class="porsi-{{ $menu['id'] }}" 
-                       value="{{ $currentPorsi }}" 
-                       min="1" 
-                       onchange="updateMakanSelection()"
-                       style="width:80px;padding:6px;border:1px solid #ddd;border-radius:4px">
-              </div>
-            </div>
+            } else {
+              $selectedMeals = array_map('trim', explode(',', $raw));
+              $selectedMeals = array_filter($selectedMeals, fn($v) => $v !== '');
+            }
+          } elseif (is_array($raw)) {
+            $first = reset($raw);
+            if (is_string($first)) {
+              $selectedMeals = array_filter($raw, fn($v) => is_string($v) && $v !== '');
+            } elseif (is_array($first) && isset($first['nama'])) {
+              $selectedMeals = array_column($raw, 'nama');
+            }
+          }
+          $makanOptions = [
+            'Nasi Box Premium',
+            'Prasmanan (per orang)',
+            'Nasi Box Standar',
+            'Paket Makan Siang'
+          ];
+        @endphp
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          @foreach($makanOptions as $option)
+            <label style="display:flex;align-items:center;gap:8px;padding:12px;border:2px solid #e5e7eb;border-radius:8px;cursor:pointer;background:#f8f9fa">
+              <input type="checkbox" 
+                     name="kebutuhan_makan[]" 
+                     value="{{ $option }}"
+                     {{ in_array($option, $selectedMeals) ? 'checked' : '' }}
+                     style="width:18px;height:18px">
+              <span style="font-weight:500">{{ $option }}</span>
+            </label>
           @endforeach
         </div>
-        <input type="hidden" name="kebutuhan_makan" id="makan-input" value="{{ old('kebutuhan_makan', $p->kebutuhan_makan) }}">
       </div>
     </div>
 
@@ -261,6 +229,7 @@
       <button type="submit" class="pill-btn" style="background:#2563eb;color:#fff;padding:12px 32px;border:none;cursor:pointer">
         Simpan Perubahan
       </button>
+      
       <a href="{{ route('pengunjung.show', $p->id) }}" class="pill-btn" style="background:#6b7280;color:#fff;padding:12px 32px">
         Batal
       </a>
@@ -268,74 +237,42 @@
   </form>
 </div>
 
+
+@endsection
 <script>
-function toggleDropdown(id) {
-  const dropdown = document.getElementById(id);
-  const toggle = dropdown.previousElementSibling;
-  const arrow = toggle.querySelector('.arrow');
+document.getElementById('editForm').addEventListener('submit', function(e) {
+  // Convert checkbox arrays to JSON strings
+  const snackCheckboxes = document.querySelectorAll('input[name="kebutuhan_snack[]"]');
+  const snackSelected = Array.from(snackCheckboxes)
+    .filter(cb => cb.checked)
+    .map(cb => cb.value);
   
-  dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
-  arrow.style.transform = dropdown.style.display === 'none' ? 'rotate(0deg)' : 'rotate(180deg)';
-}
-
-function updateSnackSelection() {
-  const checkboxes = document.querySelectorAll('.snack-checkbox');
-  const selected = [];
+  const mealCheckboxes = document.querySelectorAll('input[name="kebutuhan_makan[]"]');
+  const mealsSelected = Array.from(mealCheckboxes)
+    .filter(cb => cb.checked)
+    .map(cb => cb.value);
   
-  checkboxes.forEach(cb => {
-    const parent = cb.closest('div').parentElement;
-    const porsiInput = parent.querySelector('.porsi-input');
-    
-    if (cb.checked) {
-      if (porsiInput) porsiInput.style.display = 'block';
-      const porsiField = parent.querySelector('.porsi-' + cb.dataset.menuId);
-      const porsi = porsiField ? parseInt(porsiField.value) || 1 : 1;
-      
-      selected.push({
-        menu_id: parseInt(cb.dataset.menuId),
-        nama: cb.dataset.nama,
-        harga: parseInt(cb.dataset.harga),
-        porsi: porsi
-      });
-    } else {
-      if (porsiInput) porsiInput.style.display = 'none';
-    }
-  });
+  // Create hidden inputs with JSON values
+  let snackInput = document.querySelector('input[name="kebutuhan_snack"]');
+  if (!snackInput) {
+    snackInput = document.createElement('input');
+    snackInput.type = 'hidden';
+    snackInput.name = 'kebutuhan_snack';
+    this.appendChild(snackInput);
+  }
+  snackInput.value = JSON.stringify(snackSelected);
   
-  document.getElementById('snack-input').value = JSON.stringify(selected);
-}
-
-function updateMakanSelection() {
-  const checkboxes = document.querySelectorAll('.makan-checkbox');
-  const selected = [];
+  let mealInput = document.querySelector('input[name="kebutuhan_makan"]');
+  if (!mealInput) {
+    mealInput = document.createElement('input');
+    mealInput.type = 'hidden';
+    mealInput.name = 'kebutuhan_makan';
+    this.appendChild(mealInput);
+  }
+  mealInput.value = JSON.stringify(mealsSelected);
   
-  checkboxes.forEach(cb => {
-    const parent = cb.closest('div').parentElement;
-    const porsiInput = parent.querySelector('.porsi-input');
-    
-    if (cb.checked) {
-      if (porsiInput) porsiInput.style.display = 'block';
-      const porsiField = parent.querySelector('.porsi-' + cb.dataset.menuId);
-      const porsi = porsiField ? parseInt(porsiField.value) || 1 : 1;
-      
-      selected.push({
-        menu_id: parseInt(cb.dataset.menuId),
-        nama: cb.dataset.nama,
-        harga: parseInt(cb.dataset.harga),
-        porsi: porsi
-      });
-    } else {
-      if (porsiInput) porsiInput.style.display = 'none';
-    }
-  });
-  
-  document.getElementById('makan-input').value = JSON.stringify(selected);
-}
-
-// Initialize on load
-document.addEventListener('DOMContentLoaded', function() {
-  updateSnackSelection();
-  updateMakanSelection();
+  // Remove the checkbox inputs before submit to avoid duplicate submission
+  snackCheckboxes.forEach(cb => cb.name = '');
+  mealCheckboxes.forEach(cb => cb.name = '');
 });
 </script>
-@endsection

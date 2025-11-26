@@ -5,11 +5,172 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ $meta['title'] }}</title>
     <style>
+        @page { size: A4 landscape; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; font-size: 11px; padding: 10px; background: #f5f5f5; }
+        .container { background: white; max-width: 1200px; margin: 0 auto; padding: 16px; }
+        .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 8px; margin-bottom: 12px; }
+        .header h1 { font-size: 18px; margin-bottom: 4px; }
+        .header p { font-size: 11px; color: #666; }
+        .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 12px; }
+        .stat-box { border: 1px solid #ddd; padding: 8px; text-align: center; border-radius: 4px; }
+        .stat-box .label { font-size: 10px; color: #666; }
+        .stat-box .value { font-size: 18px; font-weight: bold; color: #7b1a2e; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 12px; font-size: 10px; }
+        th, td { border: 1px solid #ddd; padding: 6px; text-align: left; }
+        th { background: #7b1a2e; color: #fff; font-weight: 700; }
+        .summary { margin-top: 10px; padding: 8px; background: #f8f9fa; border: 1px solid #eee; }
+        .no-print { text-align: center; margin-top: 10px; }
+        @media print { .no-print { display:none!important } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>{{ $meta['title'] }}</h1>
+            <p>Periode: {{ $meta['month'] }} | Dicetak: {{ $meta['date'] }}</p>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-box"><div class="value">{{ $meta['total_kamar'] }}</div><div class="label">Total Kamar</div></div>
+            <div class="stat-box"><div class="value">{{ $meta['kamar_kosong'] }}</div><div class="label">Kamar Kosong</div></div>
+            <div class="stat-box"><div class="value">{{ $meta['kamar_terisi'] }}</div><div class="label">Kamar Terisi</div></div>
+            <div class="stat-box"><div class="value">{{ $meta['total_booking'] }}</div><div class="label">Total Booking</div></div>
+        </div>
+
+        @if($bookings->count() > 0)
+        <table>
+            <thead>
+                <tr>
+                    <th style="width:3%">No</th>
+                    <th style="width:12%">Nama</th>
+                    <th style="width:6%">Jenis</th>
+                    <th style="width:7%">Check-in</th>
+                    <th style="width:7%">Check-out</th>
+                    <th style="width:6%">Kamar Kode</th>
+                    <th style="width:10%">Kamar Dipilih</th>
+                    <th style="width:5%">Jml Kamar</th>
+                    <th style="width:5%">Jml Orang</th>
+                    <th style="width:8%">Snack</th>
+                    <th style="width:8%">Makan</th>
+                    <th style="width:8%">Total Harga</th>
+                    <th style="width:6%">Status</th>
+                    <th style="width:4%">Identitas</th>
+                    <th style="width:4%">Bukti</th>
+                    <th style="width:8%">Asal Persyarikatan</th>
+                    <th style="width:7%">No. Telp</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($bookings as $i => $b)
+                <tr>
+                    <td style="text-align:center">{{ $i+1 }}</td>
+                    <td>
+                        @if(strtolower($b->jenis_tamu) == 'corporate' && $b->nama_pic)
+                            <strong>{{ $b->nama_pic }}</strong>
+                            @if($b->nama)
+                                <br><small style="color:#666">{{ $b->nama }}</small>
+                            @endif
+                        @else
+                            {{ $b->nama }}
+                        @endif
+                    </td>
+                    <td>{{ ucfirst($b->jenis_tamu) }}</td>
+                    <td>{{ \Carbon\Carbon::parse($b->check_in)->format('d M Y') }}</td>
+                    <td>{{ \Carbon\Carbon::parse($b->check_out)->format('d M Y') }}</td>
+                    <td>{{ $b->kode_kamar ?? '-' }}</td>
+                    <td>
+                        @php
+                            $kamarIds = explode(',', $b->kode_kamar ?? '');
+                            $jenisKamars = [];
+                            foreach ($kamarIds as $kamarId) {
+                                $kamar = \App\Models\Kamar::where('kode_kamar', trim($kamarId))->first();
+                                if ($kamar && !in_array($kamar->jenis_kamar, $jenisKamars)) {
+                                    $jenisKamars[] = $kamar->jenis_kamar;
+                                }
+                            }
+                        @endphp
+                        {{ implode(', ', $jenisKamars) ?: '-' }}
+                    </td>
+                    <td style="text-align:center">{{ $b->jumlah_kamar ?? '-' }}</td>
+                    <td style="text-align:center">{{ $b->jumlah_peserta ?? '-' }}</td>
+                    <td>{{ implode(', ', array_column(json_decode($b->kebutuhan_snack ?? '[]', true), 'nama')) ?: '-' }}</td>
+                    <td>{{ implode(', ', array_column(json_decode($b->kebutuhan_makan ?? '[]', true), 'nama')) ?: '-' }}</td>
+                    <td>
+                        @if($b->total_harga)
+                            Rp {{ number_format($b->total_harga, 0, ',', '.') }}
+                        @else
+                            -
+                        @endif
+                    </td>
+                    <td>{{ $b->payment_status_label }}</td>
+                    <td style="text-align: center;">
+                        @php
+                            $relId = \Illuminate\Support\Str::startsWith($b->bukti_identitas ?? '', 'public/') ? substr($b->bukti_identitas, 7) : ($b->bukti_identitas ?? '');
+                        @endphp
+                        @if($relId && Storage::disk('public')->exists($relId))
+                            @php $filePath = Storage::disk('public')->path($relId); $ext = strtolower(pathinfo($filePath, PATHINFO_EXTENSION)); @endphp
+                            @if(in_array($ext, ['jpg','jpeg','png','gif']))
+                                <img src="{{ 'file://'.$filePath }}" style="max-width:100px;max-height:80px;object-fit:cover;display:block;margin:0 auto">
+                            @else
+                                <small>{{ strtoupper($ext) }}</small>
+                            @endif
+                        @else
+                            <span style="color:#999">-</span>
+                        @endif
+                    </td>
+                    <td style="text-align: center;">
+                        @php
+                            $relPay = \Illuminate\Support\Str::startsWith($b->bukti_pembayaran ?? '', 'public/') ? substr($b->bukti_pembayaran, 7) : ($b->bukti_pembayaran ?? '');
+                        @endphp
+                        @if($relPay && Storage::disk('public')->exists($relPay))
+                            @php $filePath2 = Storage::disk('public')->path($relPay); $ext2 = strtolower(pathinfo($filePath2, PATHINFO_EXTENSION)); @endphp
+                            @if(in_array($ext2, ['jpg','jpeg','png','gif']))
+                                <img src="{{ 'file://'.$filePath2 }}" style="max-width:100px;max-height:80px;object-fit:cover;display:block;margin:0 auto">
+                            @else
+                                <small>{{ strtoupper($ext2) }}</small>
+                            @endif
+                        @else
+                            <span style="color:#999">-</span>
+                        @endif
+                    </td>
+                    <td>{{ $b->asal_persyarikatan ?? '-' }}</td>
+                    <td>{{ $b->no_telp_pic ?? $b->no_telp ?? '-' }}</td>
+                </tr>
+                @endforeach
+            </tbody>
+        </table>
+        @else
+        <p style="text-align:center;padding:30px;color:#999">Tidak ada data booking untuk bulan ini</p>
+        @endif
+
+        <div class="summary">
+            <p><strong>Ringkasan Booking:</strong></p>
+            <p>Total Booking: {{ $bookings->count() }} transaksi</p>
+            <p>Corporate: {{ $bookings->filter(function($b) { return strtolower($b->jenis_tamu) == 'corporate'; })->count() }} | Individu: {{ $bookings->filter(function($b) { return strtolower($b->jenis_tamu) == 'individu'; })->count() }}</p>
+        </div>
+
+    </div>
+
+    <script>
+        // Auto-open print dialog after page loads (browser print view)
+        window.addEventListener('load', function() { setTimeout(function(){ window.print(); }, 500); });
+    </script>
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ $meta['title'] }}</title>
+    <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
+            @page { size: A4 landscape; }
         body {
             font-family: Arial, sans-serif;
             font-size: 11px;
@@ -137,12 +298,7 @@
             font-size: 12px;
             color: #664d03;
         }
-        .no-print {
-            text-align: center;
-            margin-top: 20px;
-        }
-        .no-print button {
-            background: #007bff;
+                        background: #007bff;
             color: white;
             border: none;
             padding: 10px 25px;
@@ -226,15 +382,23 @@
         <table>
             <thead>
                 <tr>
-                    <th style="width: 30px;">No</th>
-                    <th>Nama Pengunjung</th>
-                    <th style="width: 80px;">Jenis Tamu</th>
-                    <th style="width: 90px;">Check-in</th>
-                    <th style="width: 90px;">Check-out</th>
-                    <th>Kamar</th>
-                    <th style="width: 90px;">Status</th>
-                    <th style="width: 110px;">No. Telp</th>
+                    <th style="width: 25px;">No</th>
+                    <th style="width: 100px;">Nama Pengunjung</th>
+                    <th style="width: 70px;">Jenis Tamu</th>
+                    <th style="width: 80px;">Check-in</th>
+                    <th style="width: 80px;">Check-out</th>
+                    <th style="width: 70px;">Kamar Kode</th>
+                    <th style="width: 90px;">Kamar Dipilih</th>
                     <th style="width: 50px;">Jml Kamar</th>
+                    <th style="width: 50px;">Jml Orang</th>
+                    <th style="width: 80px;">Snack</th>
+                    <th style="width: 80px;">Makan</th>
+                    <th style="width: 80px;">Total Harga</th>
+                    <th style="width: 80px;">Status</th>
+                    <th style="width: 50px;">Identitas</th>
+                    <th style="width: 60px;">Bukti Bayar</th>
+                    <th style="width: 100px;">Asal Persyarikatan</th>
+                    <th style="width: 90px;">No. Telp</th>
                 </tr>
             </thead>
             <tbody>
@@ -271,8 +435,43 @@
                         </span>
                     </td>
                     <td>{{ $b->no_telp_pic ?? $b->no_telp ?? '-' }}</td>
-                    <td style="text-align: center;">{{ $b->jumlah_kamar ?? 1 }}</td>
-                </tr>
+                    <td style="text-align: center;">{{ $b->kode_kamar ?? '-' }}</td>
+                    <td>
+                        @php
+                            $kamarIds = explode(',', $b->kode_kamar ?? '');
+                            $jenisKamars = [];
+                            foreach ($kamarIds as $kamarId) {
+                                $kamar = \App\Models\Kamar::find(trim($kamarId));
+                                if ($kamar && !in_array($kamar->jenis_kamar, $jenisKamars)) {
+                                    $jenisKamars[] = $kamar->jenis_kamar;
+                                }
+                            }
+                        @endphp
+                        {{ implode(', ', $jenisKamars) ?: '-' }}
+                    </td>
+                    <td style="text-align: center;">{{ $b->jumlah_kamar ?? '-' }}</td>
+                    <td style="text-align: center;">{{ $b->jumlah_peserta ?? '-' }}</td>
+                    <td>
+                        @php
+                            $snacks = json_decode($b->kebutuhan_snack ?? '[]', true);
+                            $snackNames = array_column($snacks, 'nama');
+                        @endphp
+                        {{ implode(', ', $snackNames) ?: '-' }}
+                    </td>
+                    <td>
+                        @php
+                            $makans = json_decode($b->kebutuhan_makan ?? '[]', true);
+                            $makanNames = array_column($makans, 'nama');
+                        @endphp
+                        {{ implode(', ', $makanNames) ?: '-' }}
+                    </td>
+                    <td>
+                        @if($b->total_harga)
+                            Rp {{ number_format($b->total_harga, 0, ',', '.') }}
+                        @else
+                            -
+                        @endif
+                    </td>
                 @endforeach
             </tbody>
         </table>
@@ -283,8 +482,6 @@
             <p>Corporate: {{ $bookings->filter(function($b) { return strtolower($b->jenis_tamu) == 'corporate'; })->count() }} | Individu: {{ $bookings->filter(function($b) { return strtolower($b->jenis_tamu) == 'individu'; })->count() }}</p>
             <p>Pending: {{ $bookings->where('payment_status', 'pending')->count() }} | Konfirmasi: {{ $bookings->where('payment_status', 'konfirmasi_booking')->count() }} | Paid: {{ $bookings->where('payment_status', 'paid')->count() }} | Lunas: {{ $bookings->where('payment_status', 'lunas')->count() }} | Rejected: {{ $bookings->where('payment_status', 'rejected')->count() }}</p>
         </div>
-        @else
-        <p style="text-align: center; padding: 40px; color: #999;">Tidak ada data booking untuk bulan ini</p>
         @endif
 
         <div class="no-print">
@@ -293,11 +490,11 @@
         </div>
     </div>
 
-    <script>
-        // Auto-open print dialog after page loads
+                <p>Corporate: {{ $bookings->filter(function($b) { return strtolower($b->jenis_tamu) == 'corporate'; })->count() }} | Individu: {{ $bookings->filter(function($b) { return strtolower($b->jenis_tamu) == 'individu'; })->count() }}</p>
+                <p>Pending: {{ $bookings->where('payment_status', 'pending')->count() }} | Konfirmasi: {{ $bookings->where('payment_status', 'konfirmasi_booking')->count() }} | Paid: {{ $bookings->where('payment_status', 'paid')->count() }} | Lunas: {{ $bookings->where('payment_status', 'lunas')->count() }} | Rejected: {{ $bookings->where('payment_status', 'rejected')->count() }}</p>
         window.addEventListener('load', function() {
             // Wait 500ms for full render
-            setTimeout(function() {
+            <p style="text-align: center; padding: 40px; color: #999;">Tidak ada data booking untuk bulan ini</p>
                 window.print();
             }, 500);
         });

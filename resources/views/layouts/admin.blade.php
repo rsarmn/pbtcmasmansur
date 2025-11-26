@@ -65,10 +65,11 @@
         <div class="col-md-2 sidebar">
             <a href="{{ route('admin.dashboard') }}">Dashboard</a>
             <a href="{{ route('kamar.index') }}">Data Kamar</a>
+            <a href="{{ route('beranda.edit') }}">Edit Beranda</a>
             <a href="{{ route('pengunjung.index') }}">Data Pengunjung</a>
             <a href="{{ route('pembayaran.konfirmasi') }}">Pembayaran</a>
             <a href="{{ route('report.monthly') }}">Report</a>
-            <a href="{{ route('beranda.edit') }}">Edit Beranda</a>
+            
             <hr>
             <a href="{{ route('beranda.show') }}" target="_blank">🌐 View Website</a>
         </div>

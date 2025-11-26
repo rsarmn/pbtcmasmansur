@@ -95,11 +95,12 @@ document.addEventListener('DOMContentLoaded', function() {
           <th>Nama Tamu</th>
           <th>Jenis</th>
           <th>Check-in / Check-out</th>
-          <th>Kamar Dipilih</th>
           <th>Kode Kamar</th>
+          <th>Kamar Dipilih</th>
           <th>Kontak</th>
           <th>Status</th>
           <th>Bukti Bayar</th>
+          <th>Total Harga</th>
           <th>Aksi</th>
         </tr>
       </thead>
@@ -119,15 +120,20 @@ document.addEventListener('DOMContentLoaded', function() {
           </td>
           <td><span style="background:{{ strtolower($p->jenis_tamu) == 'corporate' ? '#28a745' : '#007bff' }};color:#fff;padding:4px 10px;border-radius:12px;font-size:12px">{{ ucfirst($p->jenis_tamu) }}</span></td>
           <td>{{ $p->check_in }}<br>s/d {{ $p->check_out }}</td>
+          <td>{{ $p->kode_kamar ?? '-' }}</td>
           <td>
             @php
-              // Extract jenis_kamar from special_request field
-              preg_match('/Jenis Kamar: ([^\n]+)/', $p->special_request, $match);
-              $jenis_kamar_pilihan = $match[1] ?? 'Tidak ada';
+              $kamarIds = explode(',', $p->kode_kamar ?? '');
+              $jenisKamars = [];
+              foreach ($kamarIds as $kamarId) {
+                $kamar = \App\Models\Kamar::where('kode_kamar', trim($kamarId))->first();
+                if ($kamar && !in_array($kamar->jenis_kamar, $jenisKamars)) {
+                  $jenisKamars[] = $kamar->jenis_kamar;
+                }
+              }
             @endphp
-            <strong style="color:#7b1a2e">{{ $jenis_kamar_pilihan }}</strong>
+            <strong style="color:#7b1a2e">{{ implode(', ', $jenisKamars) ?: '-' }}</strong>
           </td>
-          <td>{{ $p->kode_kamar ?? '-' }}</td>
           <td>
             @php
               $phone = preg_replace('/[^0-9+]/','',$p->no_telp_pic ?? $p->no_telp ?? '');
@@ -146,14 +152,25 @@ document.addEventListener('DOMContentLoaded', function() {
           </td>
           <td>
             @if($p->bukti_pembayaran)
-              @php $fileExists = file_exists(storage_path('app/' . $p->bukti_pembayaran)); @endphp
+              @php
+                // normalize path: if stored as 'public/xxx' remove prefix for disk access
+                $relPath = \Illuminate\Support\Str::startsWith($p->bukti_pembayaran, 'public/') ? substr($p->bukti_pembayaran, 7) : $p->bukti_pembayaran;
+                $fileExists = Storage::disk('public')->exists($relPath);
+              @endphp
               @if($fileExists)
-                <a href="{{ Storage::url(str_replace('public/','',$p->bukti_pembayaran)) }}" target="_blank" style="color:#2563eb;text-decoration:underline">Lihat Bukti</a>
+                <a href="{{ Storage::url($relPath) }}" target="_blank" style="color:#2563eb;text-decoration:underline">Lihat Bukti</a>
               @else
                 <span style="color:#dc2626;">⚠️ File hilang</span>
               @endif
             @else
               <span style="color:#999">Belum upload</span>
+            @endif
+          </td>
+          <td>
+            @if($p->total_harga)
+              <strong style="color:#10b981">Rp {{ number_format($p->total_harga, 0, ',', '.') }}</strong>
+            @else
+              <span style="color:#999">-</span>
             @endif
           </td>
           <td>
@@ -172,7 +189,7 @@ document.addEventListener('DOMContentLoaded', function() {
           </td>
         </tr>
         @empty
-        <tr><td colspan="9" style="text-align:center;color:#999;padding:32px">Tidak ada pembayaran yang perlu dikonfirmasi</td></tr>
+        <tr><td colspan="11" style="text-align:center;color:#999;padding:32px">Tidak ada pembayaran yang perlu dikonfirmasi</td></tr>
         @endforelse
       </tbody>
     </table>
@@ -183,7 +200,7 @@ document.addEventListener('DOMContentLoaded', function() {
   <div style="font-weight:600;margin-bottom:12px;color:#7b1a2e">Upload Bukti Pembayaran (Jika ada yang belum upload)</div>
   <p style="color:#666;font-size:14px;margin-bottom:16px">Gunakan form ini untuk menambahkan bukti pembayaran manual jika tamu mengirim via email/WA</p>
   
-  <form action="{{ route('pengunjung.upload_payment', $pengunjungs->first()->id ?? 1) }}" method="POST" enctype="multipart/form-data" style="display:flex;gap:12px;align-items:end">
+  <form action="#" method="POST" enctype="multipart/form-data" id="uploadPaymentForm" style="display:flex;gap:12px;align-items:end">
     @csrf
     <div>
       <label style="display:block;margin-bottom:4px;font-size:14px;font-weight:600">Pilih Booking:</label>
@@ -201,5 +218,22 @@ document.addEventListener('DOMContentLoaded', function() {
     <button type="submit" class="pill-btn" style="background:var(--brand);color:#fff">Upload</button>
   </form>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const form = document.getElementById('uploadPaymentForm');
+  if (!form) return;
+  form.addEventListener('submit', function(e) {
+    const sel = form.querySelector('select[name="booking_id"]');
+    const bookingId = sel ? sel.value : '';
+    if (!bookingId) {
+      e.preventDefault();
+      alert('Silakan pilih booking terlebih dahulu');
+      return false;
+    }
+    form.action = '/admin/pengunjung/' + bookingId + '/upload-payment';
+  });
+});
+</script>
 
 @endsection

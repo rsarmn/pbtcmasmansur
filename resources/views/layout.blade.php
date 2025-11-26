@@ -46,6 +46,7 @@
           <a href="{{ route('pengunjung.index') }}" class="font-semibold opacity-90 hover:opacity-100 hover:underline">Data Pengunjung</a>
           <a href="{{ route('pembayaran.konfirmasi') }}" class="font-semibold opacity-90 hover:opacity-100 hover:underline">Pembayaran</a>
           <a href="{{ route('report.monthly') }}" class="font-semibold opacity-90 hover:opacity-100 hover:underline">Report</a>
+          <a href="{{ route('beranda.edit') }}" class="font-semibold opacity-90 hover:opacity-100 hover:underline">Edit Beranda</a>
         </nav>
 
         <!-- Logout Button -->

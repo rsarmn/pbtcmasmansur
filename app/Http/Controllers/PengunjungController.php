@@ -5,6 +5,7 @@ use App\Models\Pengunjung;
 use App\Models\Kamar;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage; // Tambahkan ini jika belum ada
+use Illuminate\Support\Facades\Log;
 
 class PengunjungController extends Controller
 {
@@ -108,10 +109,28 @@ class PengunjungController extends Controller
 
         $assigned = $r->input('assign_kamar', []);
         if (!empty($assigned)) {
+            // map assigned values to kode_kamar (allow kode_kamar or numeric id)
+            $mapped = [];
+            $invalid = [];
+            foreach ($assigned as $v) {
+                $v = trim($v);
+                $km = Kamar::where('kode_kamar', $v)->first();
+                if (!$km && is_numeric($v)) {
+                    $km = Kamar::find($v);
+                }
+                if ($km) {
+                    $mapped[] = $km->kode_kamar;
+                } else {
+                    $invalid[] = $v;
+                }
+            }
+            if (!empty($invalid)) {
+                return back()->withErrors(['assign_kamar' => 'Kamar tidak valid: ' . implode(', ', $invalid)])->withInput();
+            }
             // assign room numbers as comma separated
-            $p->kode_kamar = implode(',', $assigned);
+            $p->kode_kamar = implode(',', $mapped);
             // mark each kamar as terisi
-            Kamar::whereIn('kode_kamar', $assigned)->update(['status' => 'terisi']);
+            Kamar::whereIn('kode_kamar', $mapped)->update(['status' => 'terisi']);
         }
 
         $p->payment_status = 'lunas';
@@ -134,32 +153,109 @@ class PengunjungController extends Controller
         ]);
 
         // VALIDASI: Cek apakah ada booking yang overlap di kamar dan tanggal yang sama
-        if ($r->filled('kode_kamar')) {
-            $kamarIds = explode(',', $r->kode_kamar);
-            
-            foreach ($kamarIds as $kamar) {
-                $conflict = Pengunjung::where('kode_kamar', 'like', '%' . trim($kamar) . '%')
-                    ->where(function($q) use ($r) {
-                        // Check if dates overlap
-                        $q->whereBetween('check_in', [$r->check_in, $r->check_out])
-                          ->orWhereBetween('check_out', [$r->check_in, $r->check_out])
-                          ->orWhere(function($query) use ($r) {
-                              $query->where('check_in', '<=', $r->check_in)
-                                    ->where('check_out', '>=', $r->check_out);
-                          });
-                    })
-                    ->whereNotIn('payment_status', ['rejected']) // exclude rejected bookings
-                    ->exists();
+            $r->validate([
+                'nama'=>'required',
+                'check_in' => 'required|date',
+                'check_out' => 'required|date|after:check_in',
+                'kode_kamar' => 'nullable',
+                'no_identitas' => ['nullable','string','regex:/^[0-9]+$/'],
+                'no_telp' => ['nullable','string','regex:/^[0-9+\- ]+$/'],
+                'jumlah_kamar' => 'nullable|integer|min:1',
+            ]);
 
-                if ($conflict) {
-                    return back()->withErrors([
-                        'kode_kamar' => "Kamar {$kamar} sudah dibooking pada tanggal {$r->check_in} sampai {$r->check_out}. Silakan pilih kamar atau tanggal lain."
-                    ])->withInput();
+        if ($r->filled('kode_kamar')) {
+            // allow either comma-separated string or array, and map numeric ids to kode_kamar
+            if (is_array($r->kode_kamar)) {
+                $rawIds = $r->kode_kamar;
+            } else {
+                $rawIds = explode(',', $r->kode_kamar);
+            }
+            $kamarIds = [];
+            $invalidKamar = [];
+            foreach ($rawIds as $v) {
+                $v = trim($v);
+                // Prefer lookup by kode_kamar; fallback to numeric id for compatibility
+                $km = Kamar::where('kode_kamar', $v)->first();
+                if (!$km && is_numeric($v)) {
+                    $km = Kamar::find($v);
+                }
+                if ($km) {
+                    $kamarIds[] = $km->kode_kamar;
+                } else {
+                    $invalidKamar[] = $v;
                 }
             }
+            // dedupe
+            $kamarIds = array_values(array_unique($kamarIds));
+            if (!empty($invalidKamar)) {
+                return back()->withErrors(['kode_kamar' => 'Kamar tidak valid: ' . implode(', ', $invalidKamar)])->withInput();
+            }
+            // normalize into comma-separated kode_kamar
+            $r->merge(['kode_kamar' => implode(',', array_filter($kamarIds))]);
+        }
+                    // Convert kebutuhan_snack/makan arrays into JSON strings if present
+                    if ($r->has('kebutuhan_snack') && is_array($r->kebutuhan_snack)) {
+                        $r->merge(['kebutuhan_snack' => json_encode($r->kebutuhan_snack)]);
+                    } else {
+                        $r->merge(['kebutuhan_snack' => json_encode([])]);
+                    }
+
+                    if ($r->has('kebutuhan_makan') && is_array($r->kebutuhan_makan)) {
+                        $r->merge(['kebutuhan_makan' => json_encode($r->kebutuhan_makan)]);
+                    } else {
+                        $r->merge(['kebutuhan_makan' => json_encode([])]);
+                    }
+
+                    // Normalize kode_kamar to comma-separated string (already mapped earlier)
+                    if ($r->has('kode_kamar')) {
+                        if (is_array($r->kode_kamar)) {
+                            $r->merge(['kode_kamar' => implode(',', $r->kode_kamar)]);
+                        }
+                    }
+
+                    // Conflict check: ensure none of the requested kode_kamar overlap existing bookings
+                    $kamarCheckIds = [];
+                    if ($r->filled('kode_kamar')) {
+                        $kamarCheckIds = array_filter(array_map('trim', is_array($r->kode_kamar) ? $r->kode_kamar : explode(',', $r->kode_kamar)));
+                    }
+
+                    foreach ($kamarCheckIds as $kamar) {
+                        $conflict = Pengunjung::where('kode_kamar', 'like', '%' . trim($kamar) . '%')
+                            ->where(function($q) use ($r) {
+                                // Check if dates overlap
+                                $q->whereBetween('check_in', [$r->check_in, $r->check_out])
+                                  ->orWhereBetween('check_out', [$r->check_in, $r->check_out])
+                                  ->orWhere(function($query) use ($r) {
+                                      $query->where('check_in', '<=', $r->check_in)
+                                            ->where('check_out', '>=', $r->check_out);
+                                  });
+                            })
+                            ->whereNotIn('payment_status', ['rejected']) // exclude rejected bookings
+                            ->exists();
+
+                        if ($conflict) {
+                            return back()->withErrors([
+                                'kode_kamar' => "Kamar {$kamar} sudah dibooking pada tanggal {$r->check_in} sampai {$r->check_out}. Silakan pilih kamar atau tanggal lain."
+                            ])->withInput();
+                        }
+                    }
+
+        // Create booking
+        $peng = Pengunjung::create($r->all());
+
+        // If kode_kamar present, mark those rooms as terisi so status updates in admin list
+        try {
+            $kamarIdsFinal = [];
+            if ($r->filled('kode_kamar')) {
+                $kamarIdsFinal = array_filter(array_map('trim', is_array($r->kode_kamar) ? $r->kode_kamar : explode(',', $r->kode_kamar)));
+            }
+            if (!empty($kamarIdsFinal)) {
+                Kamar::whereIn('kode_kamar', $kamarIdsFinal)->update(['status' => 'terisi']);
+            }
+        } catch (\Exception $e) {
+            // ignore errors — booking succeeded regardless
         }
 
-        Pengunjung::create($r->all());
         return redirect()->route('pengunjung.index')->with('success','Data pengunjung ditambah');
     }
 
@@ -194,24 +290,44 @@ class PengunjungController extends Controller
     public function update(Request $r, $id)
     {
         $p = Pengunjung::findOrFail($id);
+        Log::info('PengunjungController@update called', ['id' => $id, 'input_keys' => array_keys($r->all())]);
         
         $r->validate([
-            'nama' => 'required',
+            'nama' => 'nullable|string',
             'check_in' => 'required|date',
             'check_out' => 'required|date|after:check_in',
             'kode_kamar' => 'nullable|array',
             'kode_kamar.*' => 'string',
             'jumlah_kamar' => 'nullable|integer|min:1',
             'payment_status' => 'nullable|in:pending,konfirmasi_booking,paid,lunas,rejected',
-            'kebutuhan_snack' => 'nullable|string',
-            'kebutuhan_makan' => 'nullable|string',
+            'kebutuhan_snack' => 'nullable|array',
+            'kebutuhan_snack.*' => 'string',
+            'kebutuhan_makan' => 'nullable|array',
+            'kebutuhan_makan.*' => 'string',
         ]);
 
-        // Convert array kode_kamar to comma-separated string
+        // Convert array kode_kamar to comma-separated string (map numeric ids to kode_kamar)
         if ($r->has('kode_kamar') && is_array($r->kode_kamar)) {
-            $kamarIds = $r->kode_kamar;
-            
-            // VALIDASI: Cek overlap untuk setiap kamar
+            $rawKamarIds = $r->kode_kamar;
+            $kamarIds = [];
+            $invalid = [];
+            foreach ($rawKamarIds as $v) {
+                $v = trim($v);
+                $km = Kamar::where('kode_kamar', $v)->first();
+                if (!$km && is_numeric($v)) {
+                    $km = Kamar::find($v);
+                }
+                if ($km) {
+                    $kamarIds[] = $km->kode_kamar;
+                } else {
+                    $invalid[] = $v;
+                }
+            }
+            if (!empty($invalid)) {
+                return back()->withErrors(['kode_kamar' => 'Kamar tidak valid: ' . implode(', ', $invalid)])->withInput();
+            }
+
+            // VALIDASI: Cek overlap untuk setiap kamar (menggunakan mapped kode_kamar)
             foreach ($kamarIds as $kamar) {
                 $conflict = Pengunjung::where('id', '!=', $id) // exclude current booking
                     ->where('kode_kamar', 'like', '%' . trim($kamar) . '%')
@@ -233,28 +349,30 @@ class PengunjungController extends Controller
                     ])->withInput();
                 }
             }
-            
+
             // Convert to comma-separated string for storage
             $r->merge(['kode_kamar' => implode(',', $kamarIds)]);
         }
 
-        // Validate JSON for kebutuhan_snack and kebutuhan_makan
-        if ($r->kebutuhan_snack && $r->kebutuhan_snack !== '[]') {
-            $decoded = json_decode($r->kebutuhan_snack, true);
-            if (json_last_error() !== JSON_ERROR_NONE) {
-                return back()->withErrors(['kebutuhan_snack' => 'Format data snack tidak valid'])->withInput();
-            }
+        // Convert array kebutuhan_snack to JSON string
+        if ($r->has('kebutuhan_snack')) {
+            $snacks = $r->kebutuhan_snack ?? [];
+            $r->merge(['kebutuhan_snack' => json_encode($snacks)]);
+        } else {
+            $r->merge(['kebutuhan_snack' => json_encode([])]);
         }
         
-        if ($r->kebutuhan_makan && $r->kebutuhan_makan !== '[]') {
-            $decoded = json_decode($r->kebutuhan_makan, true);
-            if (json_last_error() !== JSON_ERROR_NONE) {
-                return back()->withErrors(['kebutuhan_makan' => 'Format data makan tidak valid'])->withInput();
-            }
+        // Convert array kebutuhan_makan to JSON string
+        if ($r->has('kebutuhan_makan')) {
+            $meals = $r->kebutuhan_makan ?? [];
+            $r->merge(['kebutuhan_makan' => json_encode($meals)]);
+        } else {
+            $r->merge(['kebutuhan_makan' => json_encode([])]);
         }
 
-        $p->update($r->all());
-        
+        $updated = $p->update($r->all());
+        Log::info('PengunjungController@update result', ['id' => $id, 'updated' => $updated, 'pengunjung' => $p->toArray()]);
+
         return redirect()->route('pengunjung.show', $id)->with('success', 'Data pengunjung berhasil diupdate');
     }
 

@@ -140,10 +140,28 @@
               </div>
             </div>
 
+            <div class="mb-3">
+              <label>Jumlah Orang</label>
+              <input 
+                  type="number" 
+                  name="jumlah_peserta" 
+                  class="form-control"
+                  min="1"
+                  value="{{ old('jumlah_peserta', 1) }}"
+                  placeholder="Jumlah orang yang menginap">
+              @error('jumlah_peserta')
+                <div class="text-danger small">{{ $message }}</div>
+              @enderror
+            </div>
+
             <!-- FILE -->
             <div class="mb-3">
-              <label>Upload Bukti Identitas</label>
-              <input type="file" name="bukti_identitas" class="form-control" accept=".jpg,.jpeg,.png">
+              <label>Upload Bukti Identitas <span style="color:red">*</span></label>
+              <input type="file" name="bukti_identitas" class="form-control" accept=".jpg,.jpeg,.png" required>
+              <small class="text-muted">Format: JPG, JPEG, PNG (Maks 2MB)</small>
+              @error('bukti_identitas')
+                <div class="text-danger small">{{ $message }}</div>
+              @enderror
             </div>
 
             <!-- SPECIAL REQUEST -->
@@ -194,8 +212,8 @@
               <span class="fw-bold">{{ number_format($selectedRoom->harga,0,',','.') }}/malam</span>
             </div>
 
-            <!-- HIDDEN ID KAMAR -->
-            <input type="hidden" name="kode_kamar" value="{{ $selectedRoom->id }}">
+            <!-- HIDDEN KODE KAMAR: send kode_kamar (string) instead of numeric id -->
+            <input type="hidden" name="kode_kamar" value="{{ $selectedRoom->kode_kamar }}">
             
             <!-- JUMLAH KAMAR -->
             <div class="mb-3">

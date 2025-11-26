@@ -235,8 +235,17 @@
             <th>Jenis Tamu</th>
             <th>Check-in</th>
             <th>Check-out</th>
-            <th>Kamar</th>
+            <th>Kamar Kode</th>
+            <th>Kamar Dipilih</th>
+            <th>Jumlah Kamar</th>
+            <th>Jumlah Orang</th>
+            <th>Snack</th>
+            <th>Makan</th>
+            <th>Total Harga</th>
             <th>Status Pembayaran</th>
+            <th>Bukti Identitas</th>
+            <th>Bukti Pembayaran</th>
+            <th>Asal Persyarikatan</th>
             <th>No. Telp</th>
           </tr>
         </thead>
@@ -257,6 +266,42 @@
             <td>{{ \Carbon\Carbon::parse($b->check_out)->format('d M Y') }}</td>
             <td>{{ $b->kode_kamar ?? $b->nomor_kamar ?? '-' }}</td>
             <td>
+              @php
+                $kamarIds = explode(',', $b->kode_kamar ?? '');
+                $jenisKamars = [];
+                foreach ($kamarIds as $kamarId) {
+                  $kamar = \App\Models\Kamar::where('kode_kamar', trim($kamarId))->first();
+                  if ($kamar && !in_array($kamar->jenis_kamar, $jenisKamars)) {
+                    $jenisKamars[] = $kamar->jenis_kamar;
+                  }
+                }
+              @endphp
+              <strong>{{ implode(', ', $jenisKamars) ?: '-' }}</strong>
+            </td>
+            <td><strong>{{ $b->jumlah_kamar ?? '-' }}</strong></td>
+            <td><strong>{{ $b->jumlah_peserta ?? '-' }}</strong></td>
+            <td>
+              @php
+                $snacks = json_decode($b->kebutuhan_snack ?? '[]', true);
+                $snackNames = array_column($snacks, 'nama');
+              @endphp
+              <small>{{ implode(', ', $snackNames) ?: '-' }}</small>
+            </td>
+            <td>
+              @php
+                $makans = json_decode($b->kebutuhan_makan ?? '[]', true);
+                $makanNames = array_column($makans, 'nama');
+              @endphp
+              <small>{{ implode(', ', $makanNames) ?: '-' }}</small>
+            </td>
+            <td>
+              @if($b->total_harga)
+                <strong style="color:#10b981">Rp {{ number_format($b->total_harga, 0, ',', '.') }}</strong>
+              @else
+                <span style="color:#999">-</span>
+              @endif
+            </td>
+            <td>
               <span style="padding:4px 8px;border-radius:4px;font-size:12px;font-weight:600;
                 @if($b->payment_status == 'lunas' || $b->payment_status == 'paid') background:#d1fae5;color:#065f46;
                 @elseif($b->payment_status == 'pending') background:#fef3c7;color:#92400e;
@@ -266,11 +311,42 @@
                 {{ $b->payment_status_label }}
               </span>
             </td>
+            <td>
+              @if($b->bukti_identitas)
+                @php
+                  $relPath = \Illuminate\Support\Str::startsWith($b->bukti_identitas, 'public/') ? substr($b->bukti_identitas, 7) : $b->bukti_identitas;
+                  $fileExists = Storage::disk('public')->exists($relPath);
+                @endphp
+                @if($fileExists)
+                  <a href="{{ Storage::url($relPath) }}" target="_blank" style="color:#2563eb;text-decoration:underline;font-size:12px">Lihat</a>
+                @else
+                  <span style="color:#dc2626;font-size:12px">⚠️ Hilang</span>
+                @endif
+              @else
+                <span style="color:#999;font-size:12px">-</span>
+              @endif
+            </td>
+            <td>
+              @if($b->bukti_pembayaran)
+                @php
+                  $relPath = \Illuminate\Support\Str::startsWith($b->bukti_pembayaran, 'public/') ? substr($b->bukti_pembayaran, 7) : $b->bukti_pembayaran;
+                  $fileExists = Storage::disk('public')->exists($relPath);
+                @endphp
+                @if($fileExists)
+                  <a href="{{ Storage::url($relPath) }}" target="_blank" style="color:#2563eb;text-decoration:underline;font-size:12px">Lihat</a>
+                @else
+                  <span style="color:#dc2626;font-size:12px">⚠️ Hilang</span>
+                @endif
+              @else
+                <span style="color:#999;font-size:12px">-</span>
+              @endif
+            </td>
+            <td>{{ $b->asal_persyarikatan ?? '-' }}</td>
             <td>{{ $b->no_telp_pic ?? $b->no_telp ?? '-' }}</td>
           </tr>
           @empty
           <tr>
-            <td colspan="8" class="empty-state">
+            <td colspan="17" class="empty-state">
               <div>📭</div>
               <div>Tidak ada booking pada bulan ini</div>
             </td>

@@ -25,7 +25,19 @@ class AdminBookingController extends Controller
     public function show($id)
     {
         $booking = Pengunjung::findOrFail($id);
-        $kamar = Kamar::find($booking->kode_kamar);
+        // booking->kode_kamar may be a comma-separated list; use first kode
+        $first = null;
+        if (!empty($booking->kode_kamar)) {
+            $parts = explode(',', $booking->kode_kamar);
+            $first = trim($parts[0]);
+        }
+        $kamar = null;
+        if ($first) {
+            $kamar = Kamar::where('kode_kamar', $first)->first();
+            if (!$kamar && is_numeric($first)) {
+                $kamar = Kamar::find($first);
+            }
+        }
 
         return view('admin.booking.detail', compact('booking', 'kamar'));
     }

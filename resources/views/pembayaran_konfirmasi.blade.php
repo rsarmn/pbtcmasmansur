@@ -146,9 +146,12 @@ document.addEventListener('DOMContentLoaded', function() {
           </td>
           <td>
             @if($p->bukti_pembayaran)
-              @php $fileExists = file_exists(storage_path('app/' . $p->bukti_pembayaran)); @endphp
+              @php
+                $relPath = \Illuminate\Support\Str::startsWith($p->bukti_pembayaran, 'public/') ? substr($p->bukti_pembayaran, 7) : $p->bukti_pembayaran;
+                $fileExists = Storage::disk('public')->exists($relPath);
+              @endphp
               @if($fileExists)
-                <a href="{{ Storage::url(str_replace('public/','',$p->bukti_pembayaran)) }}" target="_blank" style="color:#2563eb;text-decoration:underline">Lihat Bukti</a>
+                <a href="{{ Storage::url($relPath) }}" target="_blank" style="color:#2563eb;text-decoration:underline">Lihat Bukti</a>
               @else
                 <span style="color:#dc2626;">⚠️ File hilang</span>
               @endif

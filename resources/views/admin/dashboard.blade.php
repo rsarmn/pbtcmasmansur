@@ -34,7 +34,7 @@
 </style>
 
 <div class="text-center pt-6">
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-6 max-w-5xl mx-auto">
     
     <!-- Kamar Tersedia -->
     <div class="stat-card">
@@ -51,16 +51,27 @@
         <img src="{{ asset('img/chart.png') }}" alt="Chart" class="w-9 h-9">
       </div>
       <div class="stat-value">{{ $kamarTerisi }}</div>
-      <div class="stat-label">kamar terisi</div>
+      <div class="stat-label">kamar terisi
+        <div style="font-size:12px;opacity:.9">Occupancy: {{ $occupancyRate }}%</div>
+      </div>
     </div>
 
-    <!-- Jumlah Pengunjung -->
+    <!-- Jumlah Pengunjung (hari ini) -->
     <div class="stat-card" style="background:rgba(179,18,59,.5)">
       <div class="stat-icon">
         <img src="{{ asset('img/chart.png') }}" alt="Chart" class="w-9 h-9">
       </div>
       <div class="stat-value">{{ $jumlahPengunjung }}</div>
-      <div class="stat-label">jumlah pengunjung</div>
+      <div class="stat-label">jumlah pengunjung (hari ini)</div>
+    </div>
+    
+    <!-- Check-ins Hari Ini -->
+    <div class="stat-card" style="background:rgba(179,18,59,.4)">
+      <div class="stat-icon">
+        <img src="{{ asset('img/chart.png') }}" alt="Chart" class="w-9 h-9">
+      </div>
+      <div class="stat-value">{{ $checkinHariIni }}</div>
+      <div class="stat-label">check-ins (hari ini)</div>
     </div>
     
   </div>
