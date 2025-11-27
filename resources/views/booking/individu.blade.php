@@ -137,7 +137,7 @@
                     class="form-control"
                     value="{{ old('no_telp') }}"
                     required
-                    placeholder="08xxxxxxxxxx">
+                    placeholder="xxxxxxxxxx">
                 @error('no_telp')
                   <div class="text-danger small">{{ $message }}</div>
                 @enderror

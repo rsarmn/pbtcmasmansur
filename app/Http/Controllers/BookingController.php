@@ -83,7 +83,7 @@ class BookingController extends Controller
             'no_identitas'    => $request->no_identitas,
             'check_in'        => $request->check_in,
             'check_out'       => $request->check_out,
-            'no_telp'         => $request->no_telp,
+            'no_telp'         => $this->normalizePhone($request->no_telp),
             'jumlah_peserta'  => $request->input('jumlah_peserta', 1),
             'jumlah_kamar'    => $request->input('jumlah_kamar', 1),
             'special_request' => $request->special_request,
@@ -103,6 +103,25 @@ class BookingController extends Controller
         return redirect()
             ->route('booking.payment', $pengunjung->id);
     }
+
+    private function normalizePhone($phone)
+{
+    // Hilangkan semua karakter kecuali angka
+    $phone = preg_replace('/[^0-9]/', '', $phone);
+
+    // Jika diawali 0 → ganti jadi 62
+    if (substr($phone, 0, 1) === '0') {
+        $phone = '62' . substr($phone, 1);
+    }
+
+    // Jika sudah diawali 62 → biarkan
+    // Jika tidak diawali 0 atau 62 → tambahkan 62
+    if (!str_starts_with($phone, '62')) {
+        $phone = '62' . $phone;
+    }
+
+    return $phone;
+}
 
     // ============= CORPORATE =============
     public function bookingCorporate(Request $request)
@@ -223,7 +242,7 @@ class BookingController extends Controller
             'asal_persyarikatan'    => $request->asal_persyarikatan,
             'tanggal_persyarikatan' => $request->tanggal_persyarikatan,
             'nama_kegiatan'         => $request->nama_kegiatan,
-            'no_telp_pic'           => $request->no_telp_pic,
+            'no_telp_pic'           => $this->normalizePhone($request->no_telp_pic),
             'check_in'              => $request->check_in,
             'check_out'             => $request->check_out,
             'jumlah_peserta'        => $request->jumlah_peserta ?? 1,

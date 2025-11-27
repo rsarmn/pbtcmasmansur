@@ -275,12 +275,17 @@ document.addEventListener("DOMContentLoaded", function () {
     const form = document.getElementById("cekForm");
     const checkinInput = document.getElementById("checkin");
     const checkoutInput = document.getElementById("checkout");
+    const jumlahInput = document.getElementById("jumlahkamar");
+
+
 
     form.addEventListener("submit", async function (e) {
         e.preventDefault();
 
         const checkin = checkinInput.value;
         const checkout = checkoutInput.value;
+        const jumlah = jumlahInput.value || 1;
+
 
         if (!checkin || !checkout) {
             alert("Harap pilih tanggal Check-in dan Check-out");
@@ -293,7 +298,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         try {
             const response = await fetch(
-                `${window.location.origin}/cek-kamar?checkin=${checkin}&checkout=${checkout}`
+                `${window.location.origin}/cek-kamar?checkin=${checkin}&checkout=${checkout}&jumlah=${jumlah}`
             );
             const data = await response.json();
 
@@ -308,19 +313,20 @@ document.addEventListener("DOMContentLoaded", function () {
                 const card = el.closest(".card-item");
                 const bookBtn = card.querySelector(".book-now");
 
-                if (sisa > 0) {
-                    el.innerHTML = `<span style="color: green;">Tersisa ${sisa} kamar</span>`;
-                    bookBtn.disabled = false;
-                    bookBtn.dataset.locked = "false";
-                    bookBtn.style.opacity = "1";
-                    bookBtn.style.cursor = "pointer";
-                } else {
+                if (sisa < jumlah) {
                     el.innerHTML = `<span style="color: red;">Tidak tersedia</span>`;
+                    card.style.display = "none";
                     bookBtn.disabled = true;
-                    bookBtn.dataset.locked = "false";
-                    bookBtn.style.opacity = "0.5";
-                    bookBtn.style.cursor = "not-allowed";
+                    continue;
                 }
+
+                // Jika tersedia
+                card.style.display = "block";
+                el.innerHTML = `<span style="color: green;">Tersisa ${sisa} kamar</span>`;
+                bookBtn.disabled = false;
+                bookBtn.dataset.locked = "false";
+                bookBtn.style.opacity = "1";
+                bookBtn.style.cursor = "pointer";
             }
         } catch (err) {
             console.error(err);

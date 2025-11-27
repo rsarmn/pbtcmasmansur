@@ -327,6 +327,7 @@ body {
 
 .availability-check p {
     margin-bottom: 8px;
+    margin-top: 38px;
 }
 
 .availability-check label {
@@ -335,7 +336,7 @@ body {
     color: #333;
 }
 
-.availability-check input[type="date"] {
+.availability-check input {
     padding: 6px 10px;
     border: 2px solid #b1193f;
     border-radius: 10px;
@@ -345,7 +346,7 @@ body {
     font-size: 0.95rem;
 }
 
-.availability-check input[type="date"]:focus {
+.availability-check input:focus {
     border-color: #FF5F5F;
     box-shadow: 0 0 5px rgba(245, 128, 94, 0.5);
 }

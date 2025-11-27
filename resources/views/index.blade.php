@@ -91,6 +91,20 @@
     
     <div class="container swiper">
         <h1 class="fade-top animate-hidden">Our Room</h1>
+            <div class="availability-check fade-right animate-hidden">
+        <p>Cek Ketersediaan Kamar</p>
+        <form id="cekForm" action="{{ route('beranda.show') }}" method="GET">
+            <label>Check In :</label>
+            <input type="date" id="checkin" name="checkin" required>
+
+            <label>Check Out :</label>
+            <input type="date" id="checkout" name="checkout" required>
+
+            <label>Jumlah Kamar :</label>
+            <input type="number" id="jumlahkamar" name="jumlahkamar" min="1" placeholder="1" required>
+            <button type="submit" class="cek-btn">Cek</button>
+        </form>
+    </div>
         <div class="card-wrapper fade-left animate-hidden">
             <ul class="card-list swiper-wrapper">
                 @forelse($roomTypes as $room)
@@ -157,18 +171,6 @@
         </div>
         <div class="swiper-slide-button swiper-button-prev"></div>
         <div class="swiper-slide-button swiper-button-next"></div>
-    </div>
-    <div class="availability-check fade-right animate-hidden">
-        <p>Cek Ketersediaan Kamar</p>
-        <form id="cekForm" action="{{ route('beranda.show') }}" method="GET">
-            <label>Check In :</label>
-            <input type="date" id="checkin" name="checkin" required>
-
-            <label>Check Out :</label>
-            <input type="date" id="checkout" name="checkout" required>
-
-            <button type="submit" class="cek-btn">Cek</button>
-        </form>
     </div>
     <div id="dropdown-portal"></div>
     <div id="roomPopup" class="popup-overlay">

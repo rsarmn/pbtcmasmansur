@@ -116,6 +116,8 @@ class BerandaController extends Controller
     {
         $checkIn  = $request->checkin;
         $checkOut = $request->checkout;
+        $jumlah = $request->jumlah ?? 1;
+
 
         $roomTypes = Kamar::select('jenis_kamar', 'fasilitas', 'harga')
             ->groupBy('jenis_kamar', 'fasilitas', 'harga')
@@ -149,7 +151,11 @@ class BerandaController extends Controller
 
             // Kamar tersisa
             $tersisa = max(0, $total - $booked);
-            $result[$room->jenis_kamar] = $tersisa;
+            if ($tersisa >= $jumlah) {
+                $result[$room->jenis_kamar] = $tersisa;
+            } else {
+                $result[$room->jenis_kamar] = 0;
+            }
         }
 
         return response()->json($result);
