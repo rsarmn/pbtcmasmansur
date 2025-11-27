@@ -34,6 +34,7 @@
 </style>
 
 <div class="text-center pt-6">
+  <p class="text-sm text-gray-600 max-w-5xl mx-auto mb-4">Ringkasan cepat hari ini — angka-angka di bawah menunjukkan kondisi saat ini: jumlah peserta (total orang), check-in yang terjadi hari ini, dan rasio keterisian kamar.</p>
   <div class="grid grid-cols-1 md:grid-cols-4 gap-6 max-w-5xl mx-auto">
     
     <!-- Kamar Tersedia -->
@@ -42,7 +43,9 @@
         <img src="{{ asset('img/chart.png') }}" alt="Chart" class="w-9 h-9">
       </div>
       <div class="stat-value">{{ $kamarKosong }}</div>
-      <div class="stat-label">kamar tersedia</div>
+      <div class="stat-label">Kamar tersedia
+        <div style="font-size:12px;opacity:.9">Total kamar kosong saat ini</div>
+      </div>
     </div>
 
     <!-- Kamar Terisi -->
@@ -51,8 +54,12 @@
         <img src="{{ asset('img/chart.png') }}" alt="Chart" class="w-9 h-9">
       </div>
       <div class="stat-value">{{ $kamarTerisi }}</div>
-      <div class="stat-label">kamar terisi
-        <div style="font-size:12px;opacity:.9">Occupancy: {{ $occupancyRate }}%</div>
+      <div class="stat-label">Kamar terisi</div>
+      <div style="margin-top:10px">
+        <div style="background:#f3f4f6;border-radius:12px;height:12px;max-width:170px;margin:6px auto 4px;overflow:hidden">
+          <div style="width:{{ $occupancyRate }}%;background:rgba(255,255,255,0.9);height:12px"></div>
+        </div>
+        <div style="font-size:12px;opacity:.95">Occupancy: <strong>{{ $occupancyRate }}%</strong></div>
       </div>
     </div>
 
@@ -61,8 +68,10 @@
       <div class="stat-icon">
         <img src="{{ asset('img/chart.png') }}" alt="Chart" class="w-9 h-9">
       </div>
-      <div class="stat-value">{{ $jumlahPengunjung }}</div>
-      <div class="stat-label">jumlah pengunjung (hari ini)</div>
+      <div class="stat-value">{{ number_format($jumlahPengunjung ?? 0) }}</div>
+      <div class="stat-label">Jumlah pengunjung (hari ini)
+        <div style="font-size:12px;opacity:.9">Total peserta dari semua booking aktif hari ini <span title="Jumlah peserta = nilai field jumlah_peserta pada masing-masing booking">ℹ️</span></div>
+      </div>
     </div>
     
     <!-- Check-ins Hari Ini -->
@@ -70,8 +79,10 @@
       <div class="stat-icon">
         <img src="{{ asset('img/chart.png') }}" alt="Chart" class="w-9 h-9">
       </div>
-      <div class="stat-value">{{ $checkinHariIni }}</div>
-      <div class="stat-label">check-ins (hari ini)</div>
+      <div class="stat-value">{{ number_format($checkinHariIni ?? 0) }}</div>
+      <div class="stat-label">Check-ins (hari ini)
+        <div style="font-size:12px;opacity:.9">Peserta yang melakukan check-in hari ini <span title="Angka ini menghitung peserta pada pengunjung yang statusnya sudah check-in hari ini">ℹ️</span></div>
+      </div>
     </div>
     
   </div>

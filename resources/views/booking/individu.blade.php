@@ -115,6 +115,8 @@
                 <input 
                     type="text" 
                     name="no_identitas" 
+                    inputmode="numeric" 
+                    oninput="this.value = this.value.replace(/[^0-9]/g, '');"
                     class="form-control"
                     value="{{ old('no_identitas') }}"
                     required
@@ -130,6 +132,8 @@
                 <input 
                     type="text" 
                     name="no_telp" 
+                    inputmode="numeric" 
+                    oninput="this.value = this.value.replace(/[^0-9]/g, '');"
                     class="form-control"
                     value="{{ old('no_telp') }}"
                     required

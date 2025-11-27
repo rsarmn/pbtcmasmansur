@@ -43,6 +43,11 @@ document.addEventListener('DOMContentLoaded', function() {
       <a href="{{ route('kamar.create') }}" class="px-3 py-1 text-sm bg-[var(--brand)] text-white rounded">Tambah Kamar</a>
     </div>
   </div>
+  <div style="margin-bottom:12px;display:flex;gap:8px;align-items:center">
+    <input id="kamar-filter" placeholder="Cari kode kamar (mis. KUN-STD-01)" style="flex:1;padding:8px;border:1px solid #e5e7eb;border-radius:8px;" />
+    <button type="button" id="kamar-filter-action" class="pill-btn" style="background:#fff;color:var(--brand);padding:6px 10px">Cari</button>
+    <div id="kamar-search-result" style="font-size:13px;color:#7b1a2e;margin-left:8px"></div>
+  </div>
   <div style="overflow-x:auto">
     <table class="data-table">
       <thead>
@@ -58,7 +63,7 @@ document.addEventListener('DOMContentLoaded', function() {
       </thead>
       <tbody>
         @forelse($kamars as $k)
-        <tr>
+        <tr data-status="{{ $k->status ?? 'kosong' }}">
           <td>{{ $k->kode_kamar ?? $k->nomor_kamar }}</td>
           <td>{{ $k->jenis_kamar }}</td>
           <td>{{ $k->gedung }}</td>
@@ -85,4 +90,77 @@ document.addEventListener('DOMContentLoaded', function() {
     </table>
   </div>
 </div>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      try {
+        console.debug('kamar: script loaded');
+        const input = document.getElementById('kamar-filter');
+        const actionBtn = document.getElementById('kamar-filter-action');
+        const resultArea = document.getElementById('kamar-search-result');
+        const table = document.querySelector('.data-table');
+        if (!input || !table) { console.debug('kamar: input or table missing', !!input, !!table); return; }
+
+        function filter() {
+          try {
+            const q = (input.value || '').trim().toLowerCase();
+            const rows = Array.from(table.querySelectorAll('tbody tr'));
+            rows.forEach(r => {
+              const kodeCell = r.querySelector('td'); // first column = kode_kamar
+              const kodeText = kodeCell ? kodeCell.textContent.trim().toLowerCase() : '';
+              if (!q || kodeText.indexOf(q) !== -1) {
+                r.style.display = '';
+              } else {
+                r.style.display = 'none';
+              }
+            });
+              // After filtering, reorder visible rows so occupied rooms appear on top
+              try { reorderRows(); } catch(e) { console.debug('kamar: reorder after filter failed', e); }
+          } catch (e) { console.error('kamar: filter error', e); }
+        }
+
+        // live filter while typing
+        input.addEventListener('input', filter);
+
+        // action button (Cari): trigger filter and show searched kode
+        actionBtn && actionBtn.addEventListener('click', function() {
+          input.focus();
+          filter();
+          const q = (input.value || '').trim();
+          if (q) {
+            resultArea.textContent = 'Menampilkan hasil pencarian: ' + q;
+          } else {
+            resultArea.textContent = '';
+          }
+        });
+
+          // Reorder rows so 'terisi' (non-kosong) appear above 'kosong'
+          function reorderRows() {
+            try {
+              const tbody = table.tBodies[0];
+              if (!tbody) return;
+              const rows = Array.from(tbody.querySelectorAll('tr'));
+              const visible = rows.filter(r => r.style.display !== 'none');
+              const hidden = rows.filter(r => r.style.display === 'none');
+              visible.sort((a, b) => {
+                const sa = (a.dataset.status || '').toLowerCase();
+                const sb = (b.dataset.status || '').toLowerCase();
+                const pa = (sa === 'kosong') ? 1 : 0;
+                const pb = (sb === 'kosong') ? 1 : 0;
+                return pa - pb;
+              });
+              visible.concat(hidden).forEach(r => tbody.appendChild(r));
+            } catch (err) {
+              console.debug('kamar: reorderRows error', err);
+            }
+          }
+
+        // initial debug
+        console.debug('kamar: initialized, rows=', table.querySelectorAll('tbody tr').length);
+          // initial reorder on load
+          reorderRows();
+      } catch (err) {
+        console.error('kamar: init error', err);
+      }
+    });
+    </script>
 @endsection

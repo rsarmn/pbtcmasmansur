@@ -30,7 +30,6 @@ radios.forEach((radio, index) => {
 
 // Jalankan Swiper dulu
 const swiper = new Swiper(".card-wrapper", {
-
     spaceBetween: 30,
     pagination: {
         el: ".swiper-pagination",
@@ -182,7 +181,8 @@ document.querySelectorAll(".see-more").forEach((btn) => {
         const popup = document.getElementById("roomPopup");
         const popupBookBtn = popup.querySelector(".book-now");
 
-        let sisa = 1;
+        // Default: tombol terkunci sebelum cek ketersediaan
+        let sisa = null;
         if (
             window.roomAvailability &&
             window.roomAvailability[roomName] !== undefined
@@ -190,12 +190,14 @@ document.querySelectorAll(".see-more").forEach((btn) => {
             sisa = window.roomAvailability[roomName];
         }
 
-        if (sisa > 0) {
+        if (sisa !== null && sisa > 0) {
             popupBookBtn.disabled = false;
+            popupBookBtn.dataset.locked = "false";
             popupBookBtn.style.opacity = "1";
             popupBookBtn.style.cursor = "pointer";
         } else {
             popupBookBtn.disabled = true;
+            popupBookBtn.dataset.locked = "true";
             popupBookBtn.style.opacity = "0.5";
             popupBookBtn.style.cursor = "not-allowed";
         }

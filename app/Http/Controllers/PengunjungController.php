@@ -16,6 +16,51 @@ class PengunjungController extends Controller
     public function index(){
         // Hanya tampilkan pengunjung yang sudah approved (paid/lunas)
         $pengunjungs = Pengunjung::whereIn('payment_status', ['paid', 'lunas'])->latest()->get();
+
+        // Precompute display_total for each pengunjung to avoid heavy per-row DB calls in the view
+        $pengunjungs->transform(function($p){
+            $displayTotal = null;
+            try{
+                if(!empty($p->total_harga)){
+                    $displayTotal = (float) $p->total_harga;
+                } else {
+                    $roomTotal = 0;
+                    if(!empty($p->kode_kamar)){
+                        $codes = array_filter(array_map('trim', explode(',', $p->kode_kamar)));
+                        if(!empty($codes)){
+                            $roomTotal = Kamar::whereIn('kode_kamar', $codes)->sum('harga');
+                        }
+                    }
+                    $snackTotal = 0; $mealTotal = 0;
+                    if(!empty($p->kebutuhan_snack)){
+                        $raw = is_string($p->kebutuhan_snack) ? json_decode($p->kebutuhan_snack, true) : $p->kebutuhan_snack;
+                        if(is_array($raw)){
+                            foreach($raw as $it){
+                                $pp = isset($it['porsi']) ? (int)$it['porsi'] : 0;
+                                $pr = isset($it['harga']) ? (float)$it['harga'] : 0;
+                                $snackTotal += $pp * $pr;
+                            }
+                        }
+                    }
+                    if(!empty($p->kebutuhan_makan)){
+                        $raw = is_string($p->kebutuhan_makan) ? json_decode($p->kebutuhan_makan, true) : $p->kebutuhan_makan;
+                        if(is_array($raw)){
+                            foreach($raw as $it){
+                                $pp = isset($it['porsi']) ? (int)$it['porsi'] : 0;
+                                $pr = isset($it['harga']) ? (float)$it['harga'] : 0;
+                                $mealTotal += $pp * $pr;
+                            }
+                        }
+                    }
+                    $displayTotal = $roomTotal + $snackTotal + $mealTotal;
+                }
+            }catch(\Exception $e){
+                $displayTotal = null;
+            }
+            $p->display_total = $displayTotal;
+            return $p;
+        });
+
         return view('admin.pengunjung', compact('pengunjungs'));
     }
 
@@ -241,6 +286,59 @@ class PengunjungController extends Controller
                     }
 
         // Create booking
+        // Compute total_harga for new booking: include snacks, meals (if provided) and room prices
+        try {
+            $totalHargaNew = 0;
+
+            // snacks
+            if ($r->has('kebutuhan_snack')) {
+                $raw = $r->input('kebutuhan_snack');
+                $decoded = is_string($raw) ? json_decode($raw, true) : $raw;
+                if (!is_array($decoded)) $decoded = [];
+                foreach ($decoded as $it) {
+                    $porsi = isset($it['porsi']) ? (int)$it['porsi'] : 0;
+                    $harga = isset($it['harga']) ? (float)$it['harga'] : 0;
+                    $totalHargaNew += $porsi * $harga;
+                }
+                $r->merge(['kebutuhan_snack' => json_encode($decoded)]);
+            } else {
+                $r->merge(['kebutuhan_snack' => json_encode([])]);
+            }
+
+            // meals
+            if ($r->has('kebutuhan_makan')) {
+                $raw = $r->input('kebutuhan_makan');
+                $decoded = is_string($raw) ? json_decode($raw, true) : $raw;
+                if (!is_array($decoded)) $decoded = [];
+                foreach ($decoded as $it) {
+                    $porsi = isset($it['porsi']) ? (int)$it['porsi'] : 0;
+                    $harga = isset($it['harga']) ? (float)$it['harga'] : 0;
+                    $totalHargaNew += $porsi * $harga;
+                }
+                $r->merge(['kebutuhan_makan' => json_encode($decoded)]);
+            } else {
+                $r->merge(['kebutuhan_makan' => json_encode([])]);
+            }
+
+            // room prices: derive codes from request or normalize earlier mapping
+            $codes = [];
+            if ($r->filled('kode_kamar')) {
+                if (is_array($r->kode_kamar)) {
+                    $codes = $r->kode_kamar;
+                } else {
+                    $codes = array_filter(array_map('trim', explode(',', $r->kode_kamar)));
+                }
+            }
+            if (!empty($codes)) {
+                $roomTotal = Kamar::whereIn('kode_kamar', $codes)->sum('harga');
+                $totalHargaNew += (float) $roomTotal;
+            }
+
+            $r->merge(['total_harga' => $totalHargaNew]);
+        } catch (\Exception $e) {
+            Log::warning('Failed to compute total_harga in store', ['error' => $e->getMessage()]);
+        }
+
         $peng = Pengunjung::create($r->all());
 
         // If kode_kamar present, mark those rooms as terisi so status updates in admin list
@@ -284,7 +382,10 @@ class PengunjungController extends Controller
     {
         $p = Pengunjung::findOrFail($id);
         $kamars = Kamar::all(); // show all rooms, not just empty ones
-        return view('admin.pengunjung.edit', compact('p', 'kamars'));
+        // load menu items for snack and makan
+        $snackMenus = \App\Models\MenuPesmaBoga::where('jenis', 'snack')->get();
+        $mealMenus = \App\Models\MenuPesmaBoga::where('jenis', 'makan')->get();
+        return view('admin.pengunjung.edit', compact('p', 'kamars', 'snackMenus', 'mealMenus'));
     }
 
     public function update(Request $r, $id)
@@ -300,10 +401,9 @@ class PengunjungController extends Controller
             'kode_kamar.*' => 'string',
             'jumlah_kamar' => 'nullable|integer|min:1',
             'payment_status' => 'nullable|in:pending,konfirmasi_booking,paid,lunas,rejected',
-            'kebutuhan_snack' => 'nullable|array',
-            'kebutuhan_snack.*' => 'string',
-            'kebutuhan_makan' => 'nullable|array',
-            'kebutuhan_makan.*' => 'string',
+            // kebutuhan_* will be submitted as JSON string (hidden inputs) containing array of objects
+            'kebutuhan_snack' => 'nullable',
+            'kebutuhan_makan' => 'nullable',
         ]);
 
         // Convert array kode_kamar to comma-separated string (map numeric ids to kode_kamar)
@@ -354,21 +454,69 @@ class PengunjungController extends Controller
             $r->merge(['kode_kamar' => implode(',', $kamarIds)]);
         }
 
-        // Convert array kebutuhan_snack to JSON string
+        // kebutuhan_snack / kebutuhan_makan can be submitted as JSON strings from the form
+        $totalHarga = 0;
         if ($r->has('kebutuhan_snack')) {
-            $snacks = $r->kebutuhan_snack ?? [];
-            $r->merge(['kebutuhan_snack' => json_encode($snacks)]);
+            $raw = $r->input('kebutuhan_snack');
+            if (is_string($raw)) {
+                // assume JSON string
+                $decoded = json_decode($raw, true);
+            } else {
+                $decoded = $raw;
+            }
+            if (!is_array($decoded)) $decoded = [];
+            // compute total from porsi * harga
+            foreach ($decoded as $it) {
+                $porsi = isset($it['porsi']) ? (int)$it['porsi'] : 0;
+                $harga = isset($it['harga']) ? (float)$it['harga'] : 0;
+                $totalHarga += $porsi * $harga;
+            }
+            $r->merge(['kebutuhan_snack' => json_encode($decoded)]);
         } else {
             $r->merge(['kebutuhan_snack' => json_encode([])]);
         }
-        
-        // Convert array kebutuhan_makan to JSON string
+
         if ($r->has('kebutuhan_makan')) {
-            $meals = $r->kebutuhan_makan ?? [];
-            $r->merge(['kebutuhan_makan' => json_encode($meals)]);
+            $raw = $r->input('kebutuhan_makan');
+            if (is_string($raw)) {
+                $decoded = json_decode($raw, true);
+            } else {
+                $decoded = $raw;
+            }
+            if (!is_array($decoded)) $decoded = [];
+            foreach ($decoded as $it) {
+                $porsi = isset($it['porsi']) ? (int)$it['porsi'] : 0;
+                $harga = isset($it['harga']) ? (float)$it['harga'] : 0;
+                $totalHarga += $porsi * $harga;
+            }
+            $r->merge(['kebutuhan_makan' => json_encode($decoded)]);
         } else {
             $r->merge(['kebutuhan_makan' => json_encode([])]);
         }
+
+        // Include room prices in totalHarga (use posted kode_kamar or existing booking value)
+        try {
+            $codes = [];
+            if ($r->filled('kode_kamar')) {
+                $raw = $r->input('kode_kamar');
+                if (is_array($raw)) {
+                    $codes = $raw;
+                } else {
+                    $codes = array_filter(array_map('trim', explode(',', $raw)));
+                }
+            } elseif (!empty($p->kode_kamar)) {
+                $codes = array_filter(array_map('trim', explode(',', $p->kode_kamar)));
+            }
+            if (!empty($codes)) {
+                $roomTotal = Kamar::whereIn('kode_kamar', $codes)->sum('harga');
+                $totalHarga += (float) $roomTotal;
+            }
+        } catch (\Exception $e) {
+            Log::warning('Failed to include room prices in totalHarga', ['id'=>$id,'error'=>$e->getMessage()]);
+        }
+
+        // Merge total harga into request so it's saved
+        $r->merge(['total_harga' => $totalHarga]);
 
         $updated = $p->update($r->all());
         Log::info('PengunjungController@update result', ['id' => $id, 'updated' => $updated, 'pengunjung' => $p->toArray()]);

@@ -109,11 +109,25 @@
                             $relId = \Illuminate\Support\Str::startsWith($b->bukti_identitas ?? '', 'public/') ? substr($b->bukti_identitas, 7) : ($b->bukti_identitas ?? '');
                         @endphp
                         @if($relId && Storage::disk('public')->exists($relId))
-                            @php $filePath = Storage::disk('public')->path($relId); $ext = strtolower(pathinfo($filePath, PATHINFO_EXTENSION)); @endphp
-                            @if(in_array($ext, ['jpg','jpeg','png','gif']))
-                                <img src="{{ 'file://'.$filePath }}" style="max-width:100px;max-height:80px;object-fit:cover;display:block;margin:0 auto">
+                            @php
+                                $filePath = Storage::disk('public')->path($relId);
+                                $ext = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
+                                $imgData = null;
+                                try {
+                                    if(in_array($ext, ['jpg','jpeg','png','gif'])){
+                                        $raw = @file_get_contents($filePath);
+                                        if($raw !== false){
+                                            $b64 = base64_encode($raw);
+                                            $mime = ($ext === 'jpg' || $ext === 'jpeg') ? 'image/jpeg' : 'image/'.$ext;
+                                            $imgData = 'data:'.$mime.';base64,'.$b64;
+                                        }
+                                    }
+                                } catch (\Exception $e){ $imgData = null; }
+                            @endphp
+                            @if($imgData)
+                                <img src="{{ $imgData }}" style="max-width:100px;max-height:80px;object-fit:cover;display:block;margin:0 auto">
                             @else
-                                <small>{{ strtoupper($ext) }}</small>
+                                <small style="color:#999">-</small>
                             @endif
                         @else
                             <span style="color:#999">-</span>
@@ -124,11 +138,25 @@
                             $relPay = \Illuminate\Support\Str::startsWith($b->bukti_pembayaran ?? '', 'public/') ? substr($b->bukti_pembayaran, 7) : ($b->bukti_pembayaran ?? '');
                         @endphp
                         @if($relPay && Storage::disk('public')->exists($relPay))
-                            @php $filePath2 = Storage::disk('public')->path($relPay); $ext2 = strtolower(pathinfo($filePath2, PATHINFO_EXTENSION)); @endphp
-                            @if(in_array($ext2, ['jpg','jpeg','png','gif']))
-                                <img src="{{ 'file://'.$filePath2 }}" style="max-width:100px;max-height:80px;object-fit:cover;display:block;margin:0 auto">
+                            @php
+                                $filePath2 = Storage::disk('public')->path($relPay);
+                                $ext2 = strtolower(pathinfo($filePath2, PATHINFO_EXTENSION));
+                                $imgData2 = null;
+                                try {
+                                    if(in_array($ext2, ['jpg','jpeg','png','gif'])){
+                                        $raw2 = @file_get_contents($filePath2);
+                                        if($raw2 !== false){
+                                            $b642 = base64_encode($raw2);
+                                            $mime2 = ($ext2 === 'jpg' || $ext2 === 'jpeg') ? 'image/jpeg' : 'image/'.$ext2;
+                                            $imgData2 = 'data:'.$mime2.';base64,'.$b642;
+                                        }
+                                    }
+                                } catch (\Exception $e){ $imgData2 = null; }
+                            @endphp
+                            @if($imgData2)
+                                <img src="{{ $imgData2 }}" style="max-width:100px;max-height:80px;object-fit:cover;display:block;margin:0 auto">
                             @else
-                                <small>{{ strtoupper($ext2) }}</small>
+                                <small style="color:#999">-</small>
                             @endif
                         @else
                             <span style="color:#999">-</span>

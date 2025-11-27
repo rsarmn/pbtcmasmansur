@@ -278,6 +278,18 @@
 </style>
 
 <div class="detail-container">
+  @php
+    $isCheckedOut = false;
+    if(!empty($p->check_out)){
+      try{
+        $co = \Carbon\Carbon::parse($p->check_out)->startOfDay();
+        $td = \Carbon\Carbon::now()->startOfDay();
+        $isCheckedOut = $co->lte($td);
+      }catch(\Exception $e){
+        $isCheckedOut = false;
+      }
+    }
+  @endphp
   <!-- Header -->
   <div class="detail-header">
     <h2>
@@ -297,6 +309,9 @@
     <span class="badge-status {{ $p->payment_status == 'paid' || $p->payment_status == 'lunas' ? 'badge-paid' : ($p->payment_status == 'rejected' ? 'badge-rejected' : 'badge-pending') }}">
       {{ $p->payment_status_label ?? $p->payment_status }}
     </span>
+    @if($isCheckedOut)
+      <span class="badge-status badge-rejected" style="margin-left:10px;">Telah checkout • {{ \Carbon\Carbon::parse($p->check_out)->format('d M Y H:i') }}</span>
+    @endif
   </div>
 
   <!-- Cards Grid -->
@@ -503,17 +518,21 @@
       Kembali
     </a>
     
-    @if(!$p->bukti_identitas)
-      <a href="{{ route('pengunjung.checkin', $p->id) }}" class="btn btn-checkin">
-        Check-In
-      </a>
+    @if($isCheckedOut)
+      <button class="btn btn-checkout" disabled style="opacity:.9">Sudah Check-Out</button>
     @else
-      <form action="{{ route('pengunjung.checkout', $p->id) }}" method="POST" class="checkout-form" style="margin:0">
-        @csrf
-        <button type="submit" class="btn btn-checkout">
-          Check-Out
-        </button>
-      </form>
+      @if(!$p->bukti_identitas)
+        <a href="{{ route('pengunjung.checkin', $p->id) }}" class="btn btn-checkin">
+          Check-In
+        </a>
+      @else
+        <form action="{{ route('pengunjung.checkout', $p->id) }}" method="POST" class="checkout-form" style="margin:0">
+          @csrf
+          <button type="submit" class="btn btn-checkout">
+            Check-Out
+          </button>
+        </form>
+      @endif
     @endif
     
     <a href="{{ route('pengunjung.edit', $p->id) }}" class="btn btn-edit">

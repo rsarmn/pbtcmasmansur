@@ -172,6 +172,7 @@
 </style>
 
 <div class="report-container">
+
   <!-- Header -->
   <div class="report-header">
     <div>
@@ -187,9 +188,10 @@
             @php
               $date = now()->subMonths($i);
               $value = $date->format('Y-m');
-              $selected = ($selectedMonth == $value) ? 'selected' : '';
             @endphp
-            <option value="{{ $value }}" {{ $selected }}>{{ $date->format('F Y') }}</option>
+            <option value="{{ $value }}" {{ $selectedMonth == $value ? 'selected' : '' }}>
+              {{ $date->format('F Y') }}
+            </option>
           @endfor
         </select>
         <button type="submit">Tampilkan</button>
@@ -209,14 +211,17 @@
       <div class="stat-value">{{ $totalKamar }}</div>
       <div class="stat-label">Total Kamar</div>
     </div>
+
     <div class="stat-card" style="border-left-color:#10b981;">
       <div class="stat-value">{{ $kamarKosong }}</div>
       <div class="stat-label">Kamar Kosong</div>
     </div>
+
     <div class="stat-card" style="border-left-color:#f59e0b;">
       <div class="stat-value">{{ $kamarTerisi }}</div>
       <div class="stat-label">Kamar Terisi</div>
     </div>
+
     <div class="stat-card" style="border-left-color:#8b5cf6;">
       <div class="stat-value">{{ $bookingsThisMonth->count() }}</div>
       <div class="stat-label">Booking Bulan Ini</div>
@@ -226,6 +231,7 @@
   <!-- Table -->
   <div class="table-wrapper">
     <h3 style="color:#1f2937; margin-bottom:16px;">Daftar Booking Bulan Ini</h3>
+
     <div style="overflow-x:auto;">
       <table class="data-table">
         <thead>
@@ -249,11 +255,13 @@
             <th>No. Telp</th>
           </tr>
         </thead>
+
         <tbody>
           @forelse($bookingsThisMonth as $i => $b)
           <tr>
-            <td>{{ $i+1 }}</td>
+            <td>{{ $i + 1 }}</td>
             <td><strong>{{ $b->nama }}</strong></td>
+
             <td>
               <span style="padding:4px 8px;border-radius:4px;
                 background:{{ $b->jenis_tamu == 'Corporate' ? '#dbeafe' : '#fef3c7' }};
@@ -262,38 +270,46 @@
                 {{ $b->jenis_tamu }}
               </span>
             </td>
+
             <td>{{ \Carbon\Carbon::parse($b->check_in)->format('d M Y') }}</td>
             <td>{{ \Carbon\Carbon::parse($b->check_out)->format('d M Y') }}</td>
+
             <td>{{ $b->kode_kamar ?? $b->nomor_kamar ?? '-' }}</td>
+
+            <!-- Kamar Dipilih -->
             <td>
               @php
-                // Normalize raw room identifiers: prefer kode_kamar, fallback to nomor_kamar
                 $raw = $b->kode_kamar ?? $b->nomor_kamar ?? '';
                 $kamarIds = array_filter(array_map('trim', explode(',', $raw)));
+
                 $jenisKamars = [];
+
                 foreach ($kamarIds as $kamarId) {
-                  $kamar = null;
-                  if ($kamarId !== '') {
-                    // Try lookup by kode_kamar
-                    $kamar = \App\Models\Kamar::where('kode_kamar', $kamarId)->first();
-                    // Fallback: if numeric, try find by id
-                    if (!$kamar && is_numeric($kamarId)) {
-                      $kamar = \App\Models\Kamar::find(intval($kamarId));
+                    $kamar = null;
+
+                    if ($kamarId !== '') {
+                        $kamar = \App\Models\Kamar::where('kode_kamar', $kamarId)->first();
+
+                        if (!$kamar && is_numeric($kamarId)) {
+                            $kamar = \App\Models\Kamar::find(intval($kamarId));
+                        }
+                        if (!$kamar) {
+                            $kamar = \App\Models\Kamar::where('nomor_kamar', $kamarId)->first();
+                        }
                     }
-                    // Last resort: try matching nomor_kamar column
-                    if (!$kamar) {
-                      $kamar = \App\Models\Kamar::where('nomor_kamar', $kamarId)->first();
+
+                    if ($kamar && !in_array($kamar->jenis_kamar, $jenisKamars)) {
+                        $jenisKamars[] = $kamar->jenis_kamar;
                     }
-                  }
-                  if ($kamar && !in_array($kamar->jenis_kamar, $jenisKamars)) {
-                    $jenisKamars[] = $kamar->jenis_kamar;
-                  }
                 }
               @endphp
               <strong>{{ implode(', ', $jenisKamars) ?: '-' }}</strong>
             </td>
+
             <td><strong>{{ $b->jumlah_kamar ?? '-' }}</strong></td>
             <td><strong>{{ $b->jumlah_peserta ?? '-' }}</strong></td>
+
+            <!-- Snack -->
             <td>
               @php
                 $snacks = json_decode($b->kebutuhan_snack ?? '[]', true);
@@ -301,6 +317,8 @@
               @endphp
               <small>{{ implode(', ', $snackNames) ?: '-' }}</small>
             </td>
+
+            <!-- Makan -->
             <td>
               @php
                 $makans = json_decode($b->kebutuhan_makan ?? '[]', true);
@@ -308,13 +326,19 @@
               @endphp
               <small>{{ implode(', ', $makanNames) ?: '-' }}</small>
             </td>
+
+            <!-- Total Harga -->
             <td>
               @if($b->total_harga)
-                <strong style="color:#10b981">Rp {{ number_format($b->total_harga, 0, ',', '.') }}</strong>
+                <strong style="color:#10b981">
+                  Rp {{ number_format($b->total_harga, 0, ',', '.') }}
+                </strong>
               @else
                 <span style="color:#999">-</span>
               @endif
             </td>
+
+            <!-- Payment Status -->
             <td>
               <span style="padding:4px 8px;border-radius:4px;font-size:12px;font-weight:600;
                 @if($b->payment_status == 'lunas' || $b->payment_status == 'paid') background:#d1fae5;color:#065f46;
@@ -325,39 +349,57 @@
                 {{ $b->payment_status_label }}
               </span>
             </td>
+
+            <!-- Bukti Identitas -->
             <td>
               @if($b->bukti_identitas)
                 @php
-                  $relPath = \Illuminate\Support\Str::startsWith($b->bukti_identitas, 'public/') ? substr($b->bukti_identitas, 7) : $b->bukti_identitas;
+                  $relPath = Str::startsWith($b->bukti_identitas, 'public/')
+                    ? substr($b->bukti_identitas, 7)
+                    : $b->bukti_identitas;
+
                   $fileExists = Storage::disk('public')->exists($relPath);
                 @endphp
+
                 @if($fileExists)
-                  <a href="{{ Storage::url($relPath) }}" target="_blank" style="color:#2563eb;text-decoration:underline;font-size:12px">Lihat</a>
+                  <a href="{{ Storage::url($relPath) }}" target="_blank"
+                    style="color:#2563eb;text-decoration:underline;font-size:12px">Lihat</a>
                 @else
                   <span style="color:#dc2626;font-size:12px">⚠️ Hilang</span>
                 @endif
+
               @else
                 <span style="color:#999;font-size:12px">-</span>
               @endif
             </td>
+
+            <!-- Bukti Pembayaran -->
             <td>
               @if($b->bukti_pembayaran)
                 @php
-                  $relPath = \Illuminate\Support\Str::startsWith($b->bukti_pembayaran, 'public/') ? substr($b->bukti_pembayaran, 7) : $b->bukti_pembayaran;
+                  $relPath = Str::startsWith($b->bukti_pembayaran, 'public/')
+                    ? substr($b->bukti_pembayaran, 7)
+                    : $b->bukti_pembayaran;
+
                   $fileExists = Storage::disk('public')->exists($relPath);
                 @endphp
+
                 @if($fileExists)
-                  <a href="{{ Storage::url($relPath) }}" target="_blank" style="color:#2563eb;text-decoration:underline;font-size:12px">Lihat</a>
+                  <a href="{{ Storage::url($relPath) }}" target="_blank"
+                    style="color:#2563eb;text-decoration:underline;font-size:12px">Lihat</a>
                 @else
                   <span style="color:#dc2626;font-size:12px">⚠️ Hilang</span>
                 @endif
+
               @else
                 <span style="color:#999;font-size:12px">-</span>
               @endif
             </td>
+
             <td>{{ $b->asal_persyarikatan ?? '-' }}</td>
             <td>{{ $b->no_telp_pic ?? $b->no_telp ?? '-' }}</td>
           </tr>
+
           @empty
           <tr>
             <td colspan="17" class="empty-state">
@@ -367,8 +409,16 @@
           </tr>
           @endforelse
         </tbody>
+
       </table>
     </div>
   </div>
+
 </div>
+
 @endsection
+@section('scripts')
+<script>
+  // Additional JS if needed
+</script>
+@endsection 

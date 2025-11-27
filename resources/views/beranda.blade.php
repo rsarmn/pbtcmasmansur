@@ -119,6 +119,8 @@
   </style>
 </head>
 <body>
+  <!-- Fixed top-right back button -->
+  <a id="back-top-right" href="{{ route('admin.dashboard') }}" class="btn-save" style="position:fixed;top:18px;right:18px;background:#6b7280;z-index:99999;padding:8px 12px;font-size:14px;box-shadow:0 6px 12px rgba(0,0,0,.12)">Kembali</a>
 
   <h2>Update Konten Beranda</h2>
 

@@ -131,11 +131,11 @@
       </div>
       <div class="mb-3">
         <label>No Telepon PIC</label>
-        <input type="text" name="no_telp_pic" class="form-control" placeholder="Nomor WhatsApp Terdaftar">
+        <input type="text" name="no_telp_pic" inputmode="numeric" oninput="this.value = this.value.replace(/[^0-9]/g, '');" class="form-control" placeholder="Nomor WhatsApp Terdaftar">
       </div>
       <div class="mb-3">
         <label>No Identitas (KTP/Paspor)</label>
-        <input type="text" name="no_identitas" class="form-control" placeholder="Tulis  No Identitas Terdaftar">
+        <input type="text" name="no_identitas" inputmode="numeric" oninput="this.value = this.value.replace(/[^0-9]/g, '');" class="form-control" placeholder="Tulis  No Identitas Terdaftar">
       </div>
       <div class="mb-3">
         <label>Upload Bukti Identitas</label>
@@ -201,6 +201,16 @@
                 min="1"
                 required
                 placeholder="Jumlah Peserta">
+        </div>
+        <div class="col-md-6 mb-3">
+            <label>Jumlah Kamar</label>
+            <input 
+                type="number" 
+                name="jumlah_peserta" 
+                class="form-control"
+                min="1"
+                required
+                placeholder="Jumlah Kamar">
         </div>
       </div>
 

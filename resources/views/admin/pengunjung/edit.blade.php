@@ -81,6 +81,10 @@
         Tekan <strong>Ctrl</strong> (Windows) atau <strong>Cmd</strong> (Mac) untuk pilih beberapa kamar. 
         <span style="color:#10b981;font-weight:600">{{ $kamars->where('status', 'kosong')->count() }}</span> kamar kosong tersedia.
       </small>
+      {{-- expose room prices to JS so frontend can sum selected room costs on submit --}}
+      <script>
+        window.roomPrices = {!! json_encode($kamars->pluck('harga','kode_kamar')) !!};
+      </script>
     </div>
 
     <div style="margin-bottom:16px">
@@ -108,71 +112,47 @@
       </div>
 
       <div style="margin-bottom:16px">
-        <label style="display:block;margin-bottom:4px;font-weight:600">Asal Persyarikatan</label>
-        <input type="text" name="asal_persyarikatan" value="{{ old('asal_persyarikatan', $p->asal_persyarikatan) }}" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px">
-      </div>
-
-      <div style="margin-bottom:16px">
-        <label style="display:block;margin-bottom:4px;font-weight:600">Jumlah Peserta</label>
-        <input type="number" name="jumlah_peserta" value="{{ old('jumlah_peserta', $p->jumlah_peserta) }}" min="1" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px">
-      </div>
-    </div>
-
-    <div style="border-top:2px solid #e5e7eb;margin:24px 0;padding-top:24px">
-      <h4 style="margin-bottom:16px">Kebutuhan & Request</h4>
-      
-      <div style="margin-bottom:16px">
-        <label style="display:block;margin-bottom:4px;font-weight:600">Special Request</label>
-        <textarea name="special_request" rows="3" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px">{{ old('special_request', $p->special_request) }}</textarea>
-      </div>
-
-      <div style="margin-bottom:16px">
-        <label style="display:block;margin-bottom:8px;font-weight:600">Kebutuhan Snack</label>
+        <label style="display:block;margin-bottom:4px;font-weight:600">Kebutuhan Snack</label>
         @php
-          $selectedSnacks = [];
-          $raw = $p->kebutuhan_snack ?? '';
-          if (is_string($raw) && $raw !== '') {
-            // Try JSON decode first
-            $decoded = json_decode($raw, true);
-            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
-              $first = reset($decoded);
-              if (is_string($first)) {
-                // Array of strings: ["Kue Basah", "Roti Bakar"]
-                $selectedSnacks = array_filter($decoded, fn($v) => is_string($v) && $v !== '');
-              } elseif (is_array($first) && isset($first['nama'])) {
-                // Array of objects: [{"nama": "Kue Basah"}, ...]
-                $selectedSnacks = array_column($decoded, 'nama');
+          // existing snack data may be JSON array of strings or objects
+          $existingSnacksRaw = $p->kebutuhan_snack ?? '[]';
+          $existingSnacks = [];
+          try {
+            $decoded = is_string($existingSnacksRaw) ? json_decode($existingSnacksRaw, true) : $existingSnacksRaw;
+            if (is_array($decoded)) {
+              // normalize to objects with nama,porsi,harga
+              foreach ($decoded as $it) {
+                if (is_string($it)) {
+                  $existingSnacks[] = ['nama' => $it, 'porsi' => 1, 'harga' => 0];
+                } elseif (is_array($it)) {
+                  $existingSnacks[] = [
+                    'nama' => $it['nama'] ?? ($it[0] ?? ''),
+                    'porsi' => isset($it['porsi']) ? (int)$it['porsi'] : (isset($it[1]) ? (int)$it[1] : 1),
+                    'harga' => isset($it['harga']) ? (float)$it['harga'] : 0,
+                  ];
+                }
               }
-            } else {
-              // Not JSON: treat as single string or comma-separated
-              $selectedSnacks = array_map('trim', explode(',', $raw));
-              $selectedSnacks = array_filter($selectedSnacks, fn($v) => $v !== '');
             }
-          } elseif (is_array($raw)) {
-            $first = reset($raw);
-            if (is_string($first)) {
-              $selectedSnacks = array_filter($raw, fn($v) => is_string($v) && $v !== '');
-            } elseif (is_array($first) && isset($first['nama'])) {
-              $selectedSnacks = array_column($raw, 'nama');
-            }
-          }
-          $snackOptions = [
-            'Kue Basah (per porsi)',
-            'Pisang Goreng (per porsi)',
-            'Roti Bakar',
-            'Kue Kering'
-          ];
+          } catch (\Exception $e){ $existingSnacks = []; }
         @endphp
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-          @foreach($snackOptions as $option)
-            <label style="display:flex;align-items:center;gap:8px;padding:12px;border:2px solid #e5e7eb;border-radius:8px;cursor:pointer;background:#f8f9fa">
-              <input type="checkbox" 
-                     name="kebutuhan_snack[]" 
-                     value="{{ $option }}"
-                     {{ in_array($option, $selectedSnacks) ? 'checked' : '' }}
-                     style="width:18px;height:18px">
-              <span style="font-weight:500">{{ $option }}</span>
-            </label>
+
+        <div style="border:1px solid #e5e7eb;border-radius:8px;padding:8px">
+          @foreach($snackMenus as $menu)
+            @php
+              $found = null;
+              foreach($existingSnacks as $es){ if(trim($es['nama']) == trim($menu->nama_menu)){ $found = $es; break; } }
+            @endphp
+            <div style="display:flex;align-items:center;gap:12px;padding:8px;border-bottom:1px solid #f3f4f6">
+              <div style="flex:1">
+                <label style="font-weight:600">{{ $menu->nama_menu }}</label>
+                <div style="font-size:13px;color:#666">{{ $menu->deskripsi ?? '' }}</div>
+                <div style="font-size:13px;color:#10b981;font-weight:700">Rp {{ number_format($menu->harga,0,',','.') }}</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <input type="checkbox" data-name="{{ $menu->nama_menu }}" class="menu-snack-cb" id="snack_{{ $menu->id }}" {{ $found ? 'checked' : '' }}>
+                <input type="number" min="1" value="{{ $found['porsi'] ?? 1 }}" class="menu-snack-qty" data-price="{{ $menu->harga }}" style="width:86px;padding:8px;border:1px solid #ddd;border-radius:6px" {{ $found ? '' : 'disabled' }}>
+              </div>
+            </div>
           @endforeach
         </div>
       </div>
@@ -180,50 +160,35 @@
       <div style="margin-bottom:16px">
         <label style="display:block;margin-bottom:8px;font-weight:600">Kebutuhan Makan</label>
         @php
-          $selectedMeals = [];
-          $raw = $p->kebutuhan_makan ?? '';
-          if (is_string($raw) && $raw !== '') {
-            $decoded = json_decode($raw, true);
-            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
-              $first = reset($decoded);
-              if (is_string($first)) {
-                $selectedMeals = array_filter($decoded, fn($v) => is_string($v) && $v !== '');
-              } elseif (is_array($first) && isset($first['nama'])) {
-                $selectedMeals = array_column($decoded, 'nama');
-              }
-            } else {
-              $selectedMeals = array_map('trim', explode(',', $raw));
-              $selectedMeals = array_filter($selectedMeals, fn($v) => $v !== '');
-            }
-          } elseif (is_array($raw)) {
-            $first = reset($raw);
-            if (is_string($first)) {
-              $selectedMeals = array_filter($raw, fn($v) => is_string($v) && $v !== '');
-            } elseif (is_array($first) && isset($first['nama'])) {
-              $selectedMeals = array_column($raw, 'nama');
-            }
-          }
-          $makanOptions = [
-            'Nasi Box Premium',
-            'Prasmanan (per orang)',
-            'Nasi Box Standar',
-            'Paket Makan Siang'
-          ];
+          $existingMealsRaw = $p->kebutuhan_makan ?? '[]';
+          $existingMeals = [];
+          try { $dec = is_string($existingMealsRaw) ? json_decode($existingMealsRaw, true) : $existingMealsRaw; if(is_array($dec)){ foreach($dec as $it){ if(is_string($it)) $existingMeals[]=['nama'=>$it,'porsi'=>1,'harga'=>0]; elseif(is_array($it)) $existingMeals[]=['nama'=>$it['nama']??'','porsi'=>isset($it['porsi'])?(int)$it['porsi']:(isset($it[1])?(int)$it[1]:1),'harga'=>isset($it['harga'])?(float)$it['harga']:0]; } } } catch(\Exception $e){ $existingMeals = []; }
         @endphp
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-          @foreach($makanOptions as $option)
-            <label style="display:flex;align-items:center;gap:8px;padding:12px;border:2px solid #e5e7eb;border-radius:8px;cursor:pointer;background:#f8f9fa">
-              <input type="checkbox" 
-                     name="kebutuhan_makan[]" 
-                     value="{{ $option }}"
-                     {{ in_array($option, $selectedMeals) ? 'checked' : '' }}
-                     style="width:18px;height:18px">
-              <span style="font-weight:500">{{ $option }}</span>
-            </label>
+        <div style="border:1px solid #e5e7eb;border-radius:8px;padding:8px">
+          @foreach($mealMenus as $menu)
+            @php
+              $found = null;
+              foreach($existingMeals as $em){ if(trim($em['nama']) == trim($menu->nama_menu)){ $found = $em; break; } }
+            @endphp
+            <div style="display:flex;align-items:center;gap:12px;padding:8px;border-bottom:1px solid #f3f4f6">
+              <div style="flex:1">
+                <label style="font-weight:600">{{ $menu->nama_menu }}</label>
+                <div style="font-size:13px;color:#666">{{ $menu->deskripsi ?? '' }}</div>
+                <div style="font-size:13px;color:#10b981;font-weight:700">Rp {{ number_format($menu->harga,0,',','.') }}</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <input type="checkbox" data-name="{{ $menu->nama_menu }}" class="menu-meal-cb" id="meal_{{ $menu->id }}" {{ $found ? 'checked' : '' }}>
+                <input type="number" min="1" value="{{ $found['porsi'] ?? 1 }}" class="menu-meal-qty" data-price="{{ $menu->harga }}" style="width:86px;padding:8px;border:1px solid #ddd;border-radius:6px" {{ $found ? '' : 'disabled' }}>
+              </div>
+            </div>
           @endforeach
         </div>
       </div>
     </div>
+
+    <input type="hidden" name="kebutuhan_snack" id="kebutuhan_snack_input">
+    <input type="hidden" name="kebutuhan_makan" id="kebutuhan_makan_input">
+    <input type="hidden" name="total_harga" id="total_harga_input" value="{{ $p->total_harga ?? 0 }}">
 
     <div style="display:flex;gap:12px;margin-top:24px">
       <button type="submit" class="pill-btn" style="background:#2563eb;color:#fff;padding:12px 32px;border:none;cursor:pointer">
@@ -240,39 +205,66 @@
 
 @endsection
 <script>
-document.getElementById('editForm').addEventListener('submit', function(e) {
-  // Convert checkbox arrays to JSON strings
-  const snackCheckboxes = document.querySelectorAll('input[name="kebutuhan_snack[]"]');
-  const snackSelected = Array.from(snackCheckboxes)
-    .filter(cb => cb.checked)
-    .map(cb => cb.value);
-  
-  const mealCheckboxes = document.querySelectorAll('input[name="kebutuhan_makan[]"]');
-  const mealsSelected = Array.from(mealCheckboxes)
-    .filter(cb => cb.checked)
-    .map(cb => cb.value);
-  
-  // Create hidden inputs with JSON values
-  let snackInput = document.querySelector('input[name="kebutuhan_snack"]');
-  if (!snackInput) {
-    snackInput = document.createElement('input');
-    snackInput.type = 'hidden';
-    snackInput.name = 'kebutuhan_snack';
-    this.appendChild(snackInput);
+// Enable/disable qty inputs based on checkbox and collect structured data on submit
+document.addEventListener('DOMContentLoaded', function(){
+  function toggleInput(cb, qtySelector){
+    const qty = cb.parentElement.querySelector(qtySelector);
+    if(!qty) return;
+    qty.disabled = !cb.checked;
   }
-  snackInput.value = JSON.stringify(snackSelected);
-  
-  let mealInput = document.querySelector('input[name="kebutuhan_makan"]');
-  if (!mealInput) {
-    mealInput = document.createElement('input');
-    mealInput.type = 'hidden';
-    mealInput.name = 'kebutuhan_makan';
-    this.appendChild(mealInput);
-  }
-  mealInput.value = JSON.stringify(mealsSelected);
-  
-  // Remove the checkbox inputs before submit to avoid duplicate submission
-  snackCheckboxes.forEach(cb => cb.name = '');
-  mealCheckboxes.forEach(cb => cb.name = '');
+
+  document.querySelectorAll('.menu-snack-cb').forEach(cb => {
+    toggleInput(cb, '.menu-snack-qty');
+    cb.addEventListener('change', function(){ toggleInput(this, '.menu-snack-qty'); });
+  });
+  document.querySelectorAll('.menu-meal-cb').forEach(cb => {
+    toggleInput(cb, '.menu-meal-qty');
+    cb.addEventListener('change', function(){ toggleInput(this, '.menu-meal-qty'); });
+  });
+
+  document.getElementById('editForm').addEventListener('submit', function(e){
+    // build snack array
+    const snacks = [];
+    document.querySelectorAll('.menu-snack-cb').forEach(cb => {
+      if(cb.checked){
+        const name = cb.getAttribute('data-name');
+        const qty = parseInt(cb.parentElement.querySelector('.menu-snack-qty').value || 0);
+        const price = parseFloat(cb.parentElement.querySelector('.menu-snack-qty').getAttribute('data-price') || 0);
+        snacks.push({nama: name, porsi: qty, harga: price});
+      }
+    });
+
+    const meals = [];
+    document.querySelectorAll('.menu-meal-cb').forEach(cb => {
+      if(cb.checked){
+        const name = cb.getAttribute('data-name');
+        const qty = parseInt(cb.parentElement.querySelector('.menu-meal-qty').value || 0);
+        const price = parseFloat(cb.parentElement.querySelector('.menu-meal-qty').getAttribute('data-price') || 0);
+        meals.push({nama: name, porsi: qty, harga: price});
+      }
+    });
+
+    // compute room total from selected kode_kamar[] using roomPrices exposed above
+    let roomTotal = 0;
+    const kodeSelect = document.querySelector('select[name="kode_kamar[]"]');
+    if(kodeSelect){
+      Array.from(kodeSelect.selectedOptions).forEach(opt => {
+        const code = opt.value;
+        const price = parseFloat(window.roomPrices[code] || 0);
+        if(!isNaN(price)) roomTotal += price;
+      });
+    }
+
+    // compute total harga (rooms + snacks + meals)
+    let total = roomTotal;
+    snacks.forEach(i=> total += (i.porsi || 0) * (i.harga || 0));
+    meals.forEach(i=> total += (i.porsi || 0) * (i.harga || 0));
+
+    document.getElementById('kebutuhan_snack_input').value = JSON.stringify(snacks);
+    document.getElementById('kebutuhan_makan_input').value = JSON.stringify(meals);
+    document.getElementById('total_harga_input').value = total;
+
+    // allow original submit to continue
+  });
 });
 </script>

@@ -30,16 +30,13 @@ class ReportController extends Controller
 
         $totalKamar = Kamar::count();
         $kamarKosong = Kamar::where('status','kosong')->count();
+        $kamarTerisi = max(0, $totalKamar - $kamarKosong);
         $jumlahPengunjung = Pengunjung::count();
 
-        // bookings overlapping the selected month (include bookings that span into the month)
-        $bookingsThisMonth = Pengunjung::where('check_in', '<=', $monthEnd)
-            ->where('check_out', '>=', $monthStart)
+        // bookings in selected month (by check_in)
+        $bookingsThisMonth = Pengunjung::whereBetween('check_in', [$monthStart, $monthEnd])
             ->orderBy('check_in', 'asc')
             ->get();
-
-        // Prefer reading Kamar.status for real-time occupancy
-        $kamarTerisi = Kamar::where('status', 'terisi')->count();
 
         return view('admin.report_monthly', compact(
             'totalKamar','kamarKosong','kamarTerisi','jumlahPengunjung','bookingsThisMonth','monthStart','monthEnd','selectedMonth'
@@ -65,17 +62,9 @@ class ReportController extends Controller
 
         $totalKamar = Kamar::count();
         $kamarKosong = Kamar::where('status','kosong')->count();
+        $kamarTerisi = max(0, $totalKamar - $kamarKosong);
         $jumlahPengunjung = Pengunjung::count();
-
-        // bookings overlapping the month range
-        $bookingsForCount = Pengunjung::where('check_in', '<=', $end)
-            ->where('check_out', '>=', $start)
-            ->get();
-
-        $bookingsCount = $bookingsForCount->count();
-
-        // Prefer reading Kamar.status for real-time occupancy
-        $kamarTerisi = Kamar::where('status', 'terisi')->count();
+        $bookingsCount = Pengunjung::whereBetween('check_in', [$start, $end])->count();
 
         return response()->json([
             'month' => $dt->format('Y-m'),
@@ -153,16 +142,13 @@ class ReportController extends Controller
         $monthStart = $date->copy()->startOfMonth()->toDateString();
         $monthEnd = $date->copy()->endOfMonth()->toDateString();
 
-        $bookings = Pengunjung::where('check_in', '<=', $monthEnd)
-            ->where('check_out', '>=', $monthStart)
+        $bookings = Pengunjung::whereBetween('check_in', [$monthStart, $monthEnd])
             ->orderBy('check_in', 'asc')
             ->get();
         
         $totalKamar = Kamar::count();
         $kamarKosong = Kamar::where('status','kosong')->count();
-
-        // Prefer reading Kamar.status for real-time occupancy
-        $kamarTerisi = Kamar::where('status', 'terisi')->count();
+        $kamarTerisi = max(0, $totalKamar - $kamarKosong);
 
         $meta = [
             'title' => 'Laporan Bulanan - ' . $date->format('F Y'),
@@ -180,16 +166,15 @@ class ReportController extends Controller
         if (class_exists('\Barryvdh\DomPDF\Facade\Pdf')) {
             try {
                 $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('admin.report.monthly_pdf', compact('bookings','meta'));
-                $pdf->setPaper('A4', 'portrait');
+                $pdf->setPaper('A4', 'landscape');
                 return $pdf->download($filename);
             } catch (\Exception $e) {
                 // Continue to fallback
             }
         }
-
-        // Fallback: Return print-ready HTML page with auto-print script
-        // User can print to PDF using browser's Print > Save as PDF
-        return view('admin.report.monthly_pdf_print', compact('bookings','meta','filename'));
+        
+        return response()->view('admin.report.monthly_pdf', compact('bookings','meta'))
+            ->header('Content-Type', 'text/html');
     }
 
     // Export monthly report as CSV
@@ -206,8 +191,7 @@ class ReportController extends Controller
         $monthStart = $date->copy()->startOfMonth()->toDateString();
         $monthEnd = $date->copy()->endOfMonth()->toDateString();
 
-        $bookings = Pengunjung::where('check_in', '<=', $monthEnd)
-            ->where('check_out', '>=', $monthStart)
+        $bookings = Pengunjung::whereBetween('check_in', [$monthStart, $monthEnd])
             ->orderBy('check_in', 'asc')
             ->get();
 
