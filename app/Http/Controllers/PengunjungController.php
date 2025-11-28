@@ -1,0 +1,586 @@
+<?php
+namespace App\Http\Controllers;
+use Illuminate\Http\Request;
+use App\Models\Pengunjung;
+use App\Models\Kamar;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage; // Tambahkan ini jika belum ada
+use Illuminate\Support\Facades\Log;
+
+class PengunjungController extends Controller
+{
+    public function __construct(){
+        $this->middleware(\App\Http\Middleware\AdminAuth::class);
+    }
+
+    public function index(){
+        // Hanya tampilkan pengunjung yang sudah approved (paid/lunas)
+        $pengunjungs = Pengunjung::whereIn('payment_status', ['paid', 'lunas'])->latest()->get();
+
+        // Precompute display_total for each pengunjung to avoid heavy per-row DB calls in the view
+        $pengunjungs->transform(function($p){
+            $displayTotal = null;
+            try{
+                if(!empty($p->total_harga)){
+                    $displayTotal = (float) $p->total_harga;
+                } else {
+                    $roomTotal = 0;
+                    if(!empty($p->kode_kamar)){
+                        $codes = array_filter(array_map('trim', explode(',', $p->kode_kamar)));
+                        if(!empty($codes)){
+                            $roomTotal = Kamar::whereIn('kode_kamar', $codes)->sum('harga');
+                        }
+                    }
+                    $snackTotal = 0; $mealTotal = 0;
+                    if(!empty($p->kebutuhan_snack)){
+                        $raw = is_string($p->kebutuhan_snack) ? json_decode($p->kebutuhan_snack, true) : $p->kebutuhan_snack;
+                        if(is_array($raw)){
+                            foreach($raw as $it){
+                                $pp = isset($it['porsi']) ? (int)$it['porsi'] : 0;
+                                $pr = isset($it['harga']) ? (float)$it['harga'] : 0;
+                                $snackTotal += $pp * $pr;
+                            }
+                        }
+                    }
+                    if(!empty($p->kebutuhan_makan)){
+                        $raw = is_string($p->kebutuhan_makan) ? json_decode($p->kebutuhan_makan, true) : $p->kebutuhan_makan;
+                        if(is_array($raw)){
+                            foreach($raw as $it){
+                                $pp = isset($it['porsi']) ? (int)$it['porsi'] : 0;
+                                $pr = isset($it['harga']) ? (float)$it['harga'] : 0;
+                                $mealTotal += $pp * $pr;
+                            }
+                        }
+                    }
+                    $displayTotal = $roomTotal + $snackTotal + $mealTotal;
+                }
+            }catch(\Exception $e){
+                $displayTotal = null;
+            }
+            $p->display_total = $displayTotal;
+            return $p;
+        });
+
+        return view('admin.pengunjung', compact('pengunjungs'));
+    }
+
+    public function pending(){
+        // bookings that have not completed payment yet
+        $pengunjungs = Pengunjung::where('payment_status','pending')->latest()->get();
+        // also provide list of available rooms for assigning during approval
+        $availableRooms = Kamar::where('status','kosong')->get();
+        return view('admin.pengunjung.pending', compact('pengunjungs','availableRooms'));
+    }
+
+    public function konfirmasiPembayaran(){
+        // dedicated payment confirmation page - show pending bookings
+        $pengunjungs = Pengunjung::whereIn('payment_status', ['pending', 'konfirmasi_booking'])->latest()->get();
+        return view('admin.pembayaran_konfirmasi', compact('pengunjungs'));
+    }
+
+    /**
+     * Upload payment proof for a pending booking
+     */
+    public function uploadPayment(Request $r, $id)
+    {
+        $p = Pengunjung::findOrFail($id);
+        $r->validate([
+            'bukti_pembayaran' => 'required|file|mimes:jpg,jpeg,png,pdf|max:5120'
+        ]);
+
+        try {
+            // Check if file exists in request
+            if (!$r->hasFile('bukti_pembayaran')) {
+                throw new \Exception('No file uploaded');
+            }
+            
+            $file = $r->file('bukti_pembayaran');
+            
+            // Check if file is valid
+            if (!$file->isValid()) {
+                throw new \Exception('Uploaded file is not valid: ' . $file->getErrorMessage());
+            }
+            
+            // Make sure directory exists
+            $dir = storage_path('app/public/bukti_pembayaran');
+            if (!is_dir($dir)) {
+                mkdir($dir, 0775, true);
+                chmod($dir, 0775);
+            }
+
+            // Store file dengan disk 'public'
+            $path = $file->store('bukti_pembayaran', 'public');
+            
+            // Path akan jadi: bukti_pembayaran/xxx.png (tanpa public/)
+            // Kita perlu tambah 'public/' untuk consistency
+            $fullPath = 'public/' . $path;
+            
+            // Verify file was saved
+            $savedPath = storage_path('app/public/' . $path);
+            if (!file_exists($savedPath)) {
+                throw new \Exception('File not saved to: ' . $savedPath);
+            }
+            
+            // Update database
+            $p->bukti_pembayaran = $fullPath;
+            $p->save();
+
+            return back()->with('success','✓ Bukti pembayaran berhasil diupload! File: ' . basename($path));
+            
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Upload Payment Error for ID ' . $id . ': ' . $e->getMessage());
+            return back()->withErrors(['upload' => 'Gagal upload: ' . $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Approve a pending booking: mark as paid and optionally assign kamar(s)
+     */
+    public function approve(Request $r, $id)
+    {
+        $p = Pengunjung::findOrFail($id);
+        // require that bukti_pembayaran exists before approving (CATATAN: ADMIN BISA MEMBYPASS JIKA MENGGUNAKAN FORM ASSIGN)
+        // Saya hapus validasi bukti_pembayaran agar admin bisa approve & assign walaupun belum ada bukti,
+        // karena admin mungkin sudah mendapat bukti via WA. Jika Anda ingin bukti wajib, aktifkan lagi kode di bawah.
+        /*
+        if (empty($p->bukti_pembayaran)) {
+            return back()->withErrors(['bukti' => 'Tidak dapat meng-approve tanpa bukti pembayaran. Silakan minta pengunjung mengupload bukti.']);
+        }
+        */
+        $r->validate([
+            'assign_kamar' => 'nullable|array',
+            'assign_kamar.*' => 'string'
+        ]);
+
+        $assigned = $r->input('assign_kamar', []);
+        if (!empty($assigned)) {
+            // map assigned values to kode_kamar (allow kode_kamar or numeric id)
+            $mapped = [];
+            $invalid = [];
+            foreach ($assigned as $v) {
+                $v = trim($v);
+                $km = Kamar::where('kode_kamar', $v)->first();
+                if (!$km && is_numeric($v)) {
+                    $km = Kamar::find($v);
+                }
+                if ($km) {
+                    $mapped[] = $km->kode_kamar;
+                } else {
+                    $invalid[] = $v;
+                }
+            }
+            if (!empty($invalid)) {
+                return back()->withErrors(['assign_kamar' => 'Kamar tidak valid: ' . implode(', ', $invalid)])->withInput();
+            }
+            // assign room numbers as comma separated
+            $p->kode_kamar = implode(',', $mapped);
+            // mark each kamar as terisi
+            Kamar::whereIn('kode_kamar', $mapped)->update(['status' => 'terisi']);
+        }
+
+        $p->payment_status = 'lunas';
+        $p->save();
+
+        return back()->with('success','Booking telah di-approve dan status pembayaran diperbarui.');
+    }
+
+    public function create(){
+        $kamars = Kamar::where('status','kosong')->get();
+        return view('admin.pengunjung.create', compact('kamars'));
+    }
+
+    public function store(Request $r){
+        $r->validate([
+            'nama'=>'required',
+            'check_in' => 'required|date',
+            'check_out' => 'required|date|after:check_in',
+            'kode_kamar' => 'nullable|string',
+        ]);
+
+        // VALIDASI: Cek apakah ada booking yang overlap di kamar dan tanggal yang sama
+            $r->validate([
+                'nama'=>'required',
+                'check_in' => 'required|date',
+                'check_out' => 'required|date|after:check_in',
+                'kode_kamar' => 'nullable',
+                'no_identitas' => ['nullable','string','regex:/^[0-9]+$/'],
+                'no_telp' => ['nullable','string','regex:/^[0-9+\- ]+$/'],
+                'jumlah_kamar' => 'nullable|integer|min:1',
+            ]);
+
+        if ($r->filled('kode_kamar')) {
+            // allow either comma-separated string or array, and map numeric ids to kode_kamar
+            if (is_array($r->kode_kamar)) {
+                $rawIds = $r->kode_kamar;
+            } else {
+                $rawIds = explode(',', $r->kode_kamar);
+            }
+            $kamarIds = [];
+            $invalidKamar = [];
+            foreach ($rawIds as $v) {
+                $v = trim($v);
+                // Prefer lookup by kode_kamar; fallback to numeric id for compatibility
+                $km = Kamar::where('kode_kamar', $v)->first();
+                if (!$km && is_numeric($v)) {
+                    $km = Kamar::find($v);
+                }
+                if ($km) {
+                    $kamarIds[] = $km->kode_kamar;
+                } else {
+                    $invalidKamar[] = $v;
+                }
+            }
+            // dedupe
+            $kamarIds = array_values(array_unique($kamarIds));
+            if (!empty($invalidKamar)) {
+                return back()->withErrors(['kode_kamar' => 'Kamar tidak valid: ' . implode(', ', $invalidKamar)])->withInput();
+            }
+            // normalize into comma-separated kode_kamar
+            $r->merge(['kode_kamar' => implode(',', array_filter($kamarIds))]);
+        }
+                    // Convert kebutuhan_snack/makan arrays into JSON strings if present
+                    if ($r->has('kebutuhan_snack') && is_array($r->kebutuhan_snack)) {
+                        $r->merge(['kebutuhan_snack' => json_encode($r->kebutuhan_snack)]);
+                    } else {
+                        $r->merge(['kebutuhan_snack' => json_encode([])]);
+                    }
+
+                    if ($r->has('kebutuhan_makan') && is_array($r->kebutuhan_makan)) {
+                        $r->merge(['kebutuhan_makan' => json_encode($r->kebutuhan_makan)]);
+                    } else {
+                        $r->merge(['kebutuhan_makan' => json_encode([])]);
+                    }
+
+                    // Normalize kode_kamar to comma-separated string (already mapped earlier)
+                    if ($r->has('kode_kamar')) {
+                        if (is_array($r->kode_kamar)) {
+                            $r->merge(['kode_kamar' => implode(',', $r->kode_kamar)]);
+                        }
+                    }
+
+                    // Conflict check: ensure none of the requested kode_kamar overlap existing bookings
+                    $kamarCheckIds = [];
+                    if ($r->filled('kode_kamar')) {
+                        $kamarCheckIds = array_filter(array_map('trim', is_array($r->kode_kamar) ? $r->kode_kamar : explode(',', $r->kode_kamar)));
+                    }
+
+                    foreach ($kamarCheckIds as $kamar) {
+                        $conflict = Pengunjung::where('kode_kamar', 'like', '%' . trim($kamar) . '%')
+                            ->where(function($q) use ($r) {
+                                // Check if dates overlap
+                                $q->whereBetween('check_in', [$r->check_in, $r->check_out])
+                                  ->orWhereBetween('check_out', [$r->check_in, $r->check_out])
+                                  ->orWhere(function($query) use ($r) {
+                                      $query->where('check_in', '<=', $r->check_in)
+                                            ->where('check_out', '>=', $r->check_out);
+                                  });
+                            })
+                            ->whereNotIn('payment_status', ['rejected']) // exclude rejected bookings
+                            ->exists();
+
+                        if ($conflict) {
+                            return back()->withErrors([
+                                'kode_kamar' => "Kamar {$kamar} sudah dibooking pada tanggal {$r->check_in} sampai {$r->check_out}. Silakan pilih kamar atau tanggal lain."
+                            ])->withInput();
+                        }
+                    }
+
+        // Create booking
+        // Compute total_harga for new booking: include snacks, meals (if provided) and room prices
+        try {
+            $totalHargaNew = 0;
+
+            // snacks
+            if ($r->has('kebutuhan_snack')) {
+                $raw = $r->input('kebutuhan_snack');
+                $decoded = is_string($raw) ? json_decode($raw, true) : $raw;
+                if (!is_array($decoded)) $decoded = [];
+                foreach ($decoded as $it) {
+                    $porsi = isset($it['porsi']) ? (int)$it['porsi'] : 0;
+                    $harga = isset($it['harga']) ? (float)$it['harga'] : 0;
+                    $totalHargaNew += $porsi * $harga;
+                }
+                $r->merge(['kebutuhan_snack' => json_encode($decoded)]);
+            } else {
+                $r->merge(['kebutuhan_snack' => json_encode([])]);
+            }
+
+            // meals
+            if ($r->has('kebutuhan_makan')) {
+                $raw = $r->input('kebutuhan_makan');
+                $decoded = is_string($raw) ? json_decode($raw, true) : $raw;
+                if (!is_array($decoded)) $decoded = [];
+                foreach ($decoded as $it) {
+                    $porsi = isset($it['porsi']) ? (int)$it['porsi'] : 0;
+                    $harga = isset($it['harga']) ? (float)$it['harga'] : 0;
+                    $totalHargaNew += $porsi * $harga;
+                }
+                $r->merge(['kebutuhan_makan' => json_encode($decoded)]);
+            } else {
+                $r->merge(['kebutuhan_makan' => json_encode([])]);
+            }
+
+            // room prices: derive codes from request or normalize earlier mapping
+            $codes = [];
+            if ($r->filled('kode_kamar')) {
+                if (is_array($r->kode_kamar)) {
+                    $codes = $r->kode_kamar;
+                } else {
+                    $codes = array_filter(array_map('trim', explode(',', $r->kode_kamar)));
+                }
+            }
+            if (!empty($codes)) {
+                $roomTotal = Kamar::whereIn('kode_kamar', $codes)->sum('harga');
+                $totalHargaNew += (float) $roomTotal;
+            }
+
+            $r->merge(['total_harga' => $totalHargaNew]);
+        } catch (\Exception $e) {
+            Log::warning('Failed to compute total_harga in store', ['error' => $e->getMessage()]);
+        }
+
+        $peng = Pengunjung::create($r->all());
+
+        // If kode_kamar present, mark those rooms as terisi so status updates in admin list
+        try {
+            $kamarIdsFinal = [];
+            if ($r->filled('kode_kamar')) {
+                $kamarIdsFinal = array_filter(array_map('trim', is_array($r->kode_kamar) ? $r->kode_kamar : explode(',', $r->kode_kamar)));
+            }
+            if (!empty($kamarIdsFinal)) {
+                Kamar::whereIn('kode_kamar', $kamarIdsFinal)->update(['status' => 'terisi']);
+            }
+        } catch (\Exception $e) {
+            // ignore errors — booking succeeded regardless
+        }
+
+        return redirect()->route('pengunjung.index')->with('success','Data pengunjung ditambah');
+    }
+
+    public function destroy($id){
+        $pengunjung = Pengunjung::findOrFail($id);
+        $pengunjung->delete();
+        return back()->with('success','Pengunjung dihapus');
+    }
+
+    public function reject(Request $r, $id)
+    {
+        $p = Pengunjung::findOrFail($id);
+        // mark as rejected
+        $p->payment_status = 'rejected'; 
+        $p->save();
+        return back()->with('success','Booking telah ditolak (status diubah menjadi Ditolak).');
+    }
+
+    public function show($id)
+    {
+        $p = Pengunjung::findOrFail($id);
+        return view('admin.pengunjung.show', compact('p'));
+    }
+
+    public function edit($id)
+    {
+        $p = Pengunjung::findOrFail($id);
+        $kamars = Kamar::all(); // show all rooms, not just empty ones
+        // load menu items for snack and makan
+        $snackMenus = \App\Models\MenuPesmaBoga::where('jenis', 'snack')->get();
+        $mealMenus = \App\Models\MenuPesmaBoga::where('jenis', 'makan')->get();
+        return view('admin.pengunjung.edit', compact('p', 'kamars', 'snackMenus', 'mealMenus'));
+    }
+
+    public function update(Request $r, $id)
+    {
+        $p = Pengunjung::findOrFail($id);
+        Log::info('PengunjungController@update called', ['id' => $id, 'input_keys' => array_keys($r->all())]);
+        
+        $r->validate([
+            'nama' => 'nullable|string',
+            'check_in' => 'required|date',
+            'check_out' => 'required|date|after:check_in',
+            'kode_kamar' => 'nullable|array',
+            'kode_kamar.*' => 'string',
+            'jumlah_kamar' => 'nullable|integer|min:1',
+            'payment_status' => 'nullable|in:pending,konfirmasi_booking,paid,lunas,rejected',
+            // kebutuhan_* will be submitted as JSON string (hidden inputs) containing array of objects
+            'kebutuhan_snack' => 'nullable',
+            'kebutuhan_makan' => 'nullable',
+        ]);
+
+        // Convert array kode_kamar to comma-separated string (map numeric ids to kode_kamar)
+        if ($r->has('kode_kamar') && is_array($r->kode_kamar)) {
+            $rawKamarIds = $r->kode_kamar;
+            $kamarIds = [];
+            $invalid = [];
+            foreach ($rawKamarIds as $v) {
+                $v = trim($v);
+                $km = Kamar::where('kode_kamar', $v)->first();
+                if (!$km && is_numeric($v)) {
+                    $km = Kamar::find($v);
+                }
+                if ($km) {
+                    $kamarIds[] = $km->kode_kamar;
+                } else {
+                    $invalid[] = $v;
+                }
+            }
+            if (!empty($invalid)) {
+                return back()->withErrors(['kode_kamar' => 'Kamar tidak valid: ' . implode(', ', $invalid)])->withInput();
+            }
+
+            // VALIDASI: Cek overlap untuk setiap kamar (menggunakan mapped kode_kamar)
+            foreach ($kamarIds as $kamar) {
+                $conflict = Pengunjung::where('id', '!=', $id) // exclude current booking
+                    ->where('kode_kamar', 'like', '%' . trim($kamar) . '%')
+                    ->where(function($q) use ($r) {
+                        // Check if dates overlap
+                        $q->whereBetween('check_in', [$r->check_in, $r->check_out])
+                          ->orWhereBetween('check_out', [$r->check_in, $r->check_out])
+                          ->orWhere(function($query) use ($r) {
+                              $query->where('check_in', '<=', $r->check_in)
+                                    ->where('check_out', '>=', $r->check_out);
+                          });
+                    })
+                    ->whereNotIn('payment_status', ['rejected'])
+                    ->exists();
+
+                if ($conflict) {
+                    return back()->withErrors([
+                        'kode_kamar' => "Kamar {$kamar} sudah dibooking pada tanggal {$r->check_in} sampai {$r->check_out}. Silakan pilih kamar atau tanggal lain."
+                    ])->withInput();
+                }
+            }
+
+            // Convert to comma-separated string for storage
+            $r->merge(['kode_kamar' => implode(',', $kamarIds)]);
+        }
+
+        // kebutuhan_snack / kebutuhan_makan can be submitted as JSON strings from the form
+        $totalHarga = 0;
+        if ($r->has('kebutuhan_snack')) {
+            $raw = $r->input('kebutuhan_snack');
+            if (is_string($raw)) {
+                // assume JSON string
+                $decoded = json_decode($raw, true);
+            } else {
+                $decoded = $raw;
+            }
+            if (!is_array($decoded)) $decoded = [];
+            // compute total from porsi * harga
+            foreach ($decoded as $it) {
+                $porsi = isset($it['porsi']) ? (int)$it['porsi'] : 0;
+                $harga = isset($it['harga']) ? (float)$it['harga'] : 0;
+                $totalHarga += $porsi * $harga;
+            }
+            $r->merge(['kebutuhan_snack' => json_encode($decoded)]);
+        } else {
+            $r->merge(['kebutuhan_snack' => json_encode([])]);
+        }
+
+        if ($r->has('kebutuhan_makan')) {
+            $raw = $r->input('kebutuhan_makan');
+            if (is_string($raw)) {
+                $decoded = json_decode($raw, true);
+            } else {
+                $decoded = $raw;
+            }
+            if (!is_array($decoded)) $decoded = [];
+            foreach ($decoded as $it) {
+                $porsi = isset($it['porsi']) ? (int)$it['porsi'] : 0;
+                $harga = isset($it['harga']) ? (float)$it['harga'] : 0;
+                $totalHarga += $porsi * $harga;
+            }
+            $r->merge(['kebutuhan_makan' => json_encode($decoded)]);
+        } else {
+            $r->merge(['kebutuhan_makan' => json_encode([])]);
+        }
+
+        // Include room prices in totalHarga (use posted kode_kamar or existing booking value)
+        try {
+            $codes = [];
+            if ($r->filled('kode_kamar')) {
+                $raw = $r->input('kode_kamar');
+                if (is_array($raw)) {
+                    $codes = $raw;
+                } else {
+                    $codes = array_filter(array_map('trim', explode(',', $raw)));
+                }
+            } elseif (!empty($p->kode_kamar)) {
+                $codes = array_filter(array_map('trim', explode(',', $p->kode_kamar)));
+            }
+            if (!empty($codes)) {
+                $roomTotal = Kamar::whereIn('kode_kamar', $codes)->sum('harga');
+                $totalHarga += (float) $roomTotal;
+            }
+        } catch (\Exception $e) {
+            Log::warning('Failed to include room prices in totalHarga', ['id'=>$id,'error'=>$e->getMessage()]);
+        }
+
+        // Merge total harga into request so it's saved
+        $r->merge(['total_harga' => $totalHarga]);
+
+        $updated = $p->update($r->all());
+        Log::info('PengunjungController@update result', ['id' => $id, 'updated' => $updated, 'pengunjung' => $p->toArray()]);
+
+        return redirect()->route('pengunjung.show', $id)->with('success', 'Data pengunjung berhasil diupdate');
+    }
+
+    public function showCheckin($id)
+    {
+        $p = Pengunjung::findOrFail($id);
+        return view('admin.pengunjung.checkin', compact('p'));
+    }
+
+    public function processCheckin(Request $r, $id)
+    {
+        $p = Pengunjung::findOrFail($id);
+        
+        // Validate identity document is provided
+        $r->validate([
+            'bukti_identitas' => 'required|file|mimes:jpg,jpeg,png,pdf|max:5120',
+            'identity_type' => 'required|in:KTP,KTM,SIM',
+        ]);
+
+        // Store identity document
+        $path = $r->file('bukti_identitas')->store('public/bukti_identitas');
+        $p->bukti_identitas = $path;
+        $p->identity_type = $r->identity_type;
+        
+        // Update room status to terisi if kamar assigned
+        if ($p->kode_kamar ?? $p->nomor_kamar) {
+            $kodaKamar = $p->kode_kamar ?? $p->nomor_kamar;
+            $kamarIds = explode(',', $kodaKamar);
+            
+            // Use runtime column detection
+            if (Schema::hasColumn('kamars', 'kode_kamar')) {
+                Kamar::whereIn('kode_kamar', $kamarIds)->update(['status' => 'terisi']);
+            } else {
+                Kamar::whereIn('nomor_kamar', $kamarIds)->update(['status' => 'terisi']);
+            }
+        }
+        
+        $p->save();
+
+        return redirect()->route('pengunjung.show', $id)->with('success', 'Check-in berhasil. Identitas tersimpan dan kamar ditandai terisi.');
+    }
+
+    public function processCheckout(Request $r, $id)
+    {
+        $p = Pengunjung::findOrFail($id);
+        
+        // Return room to available status
+        if ($p->kode_kamar ?? $p->nomor_kamar) {
+            $kodaKamar = $p->kode_kamar ?? $p->nomor_kamar;
+            $kamarIds = explode(',', $kodaKamar);
+            
+            // Use runtime column detection
+            if (Schema::hasColumn('kamars', 'kode_kamar')) {
+                Kamar::whereIn('kode_kamar', $kamarIds)->update(['status' => 'kosong']);
+            } else {
+                Kamar::whereIn('nomor_kamar', $kamarIds)->update(['status' => 'kosong']);
+            }
+        }
+
+        // Note: Identity document returned - admin should note this manually
+        return redirect()->route('pengunjung.index')->with('success', 'Checkout berhasil. Kamar dikembalikan ke status kosong. Jangan lupa kembalikan identitas kepada tamu.');
+    }
+}
