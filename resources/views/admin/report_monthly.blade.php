@@ -245,8 +245,6 @@
             <th>Kamar Dipilih</th>
             <th>Jumlah Kamar</th>
             <th>Jumlah Orang</th>
-            <th>Snack</th>
-            <th>Makan</th>
             <th>Total Harga</th>
             <th>Status Pembayaran</th>
             <th>Bukti Identitas</th>
@@ -309,23 +307,7 @@
             <td><strong>{{ $b->jumlah_kamar ?? '-' }}</strong></td>
             <td><strong>{{ $b->jumlah_peserta ?? '-' }}</strong></td>
 
-            <!-- Snack -->
-            <td>
-              @php
-                $snacks = json_decode($b->kebutuhan_snack ?? '[]', true);
-                $snackNames = array_column($snacks, 'nama');
-              @endphp
-              <small>{{ implode(', ', $snackNames) ?: '-' }}</small>
-            </td>
-
-            <!-- Makan -->
-            <td>
-              @php
-                $makans = json_decode($b->kebutuhan_makan ?? '[]', true);
-                $makanNames = array_column($makans, 'nama');
-              @endphp
-              <small>{{ implode(', ', $makanNames) ?: '-' }}</small>
-            </td>
+            
 
             <!-- Total Harga -->
             <td>

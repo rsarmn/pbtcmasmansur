@@ -111,84 +111,6 @@
         <input type="text" name="nama_kegiatan" value="{{ old('nama_kegiatan', $p->nama_kegiatan) }}" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px">
       </div>
 
-      <div style="margin-bottom:16px">
-        <label style="display:block;margin-bottom:4px;font-weight:600">Kebutuhan Snack</label>
-        @php
-          // existing snack data may be JSON array of strings or objects
-          $existingSnacksRaw = $p->kebutuhan_snack ?? '[]';
-          $existingSnacks = [];
-          try {
-            $decoded = is_string($existingSnacksRaw) ? json_decode($existingSnacksRaw, true) : $existingSnacksRaw;
-            if (is_array($decoded)) {
-              // normalize to objects with nama,porsi,harga
-              foreach ($decoded as $it) {
-                if (is_string($it)) {
-                  $existingSnacks[] = ['nama' => $it, 'porsi' => 1, 'harga' => 0];
-                } elseif (is_array($it)) {
-                  $existingSnacks[] = [
-                    'nama' => $it['nama'] ?? ($it[0] ?? ''),
-                    'porsi' => isset($it['porsi']) ? (int)$it['porsi'] : (isset($it[1]) ? (int)$it[1] : 1),
-                    'harga' => isset($it['harga']) ? (float)$it['harga'] : 0,
-                  ];
-                }
-              }
-            }
-          } catch (\Exception $e){ $existingSnacks = []; }
-        @endphp
-
-        <div style="border:1px solid #e5e7eb;border-radius:8px;padding:8px">
-          @foreach($snackMenus as $menu)
-            @php
-              $found = null;
-              foreach($existingSnacks as $es){ if(trim($es['nama']) == trim($menu->nama_menu)){ $found = $es; break; } }
-            @endphp
-            <div style="display:flex;align-items:center;gap:12px;padding:8px;border-bottom:1px solid #f3f4f6">
-              <div style="flex:1">
-                <label style="font-weight:600">{{ $menu->nama_menu }}</label>
-                <div style="font-size:13px;color:#666">{{ $menu->deskripsi ?? '' }}</div>
-                <div style="font-size:13px;color:#10b981;font-weight:700">Rp {{ number_format($menu->harga,0,',','.') }}</div>
-              </div>
-              <div style="display:flex;align-items:center;gap:8px">
-                <input type="checkbox" data-name="{{ $menu->nama_menu }}" class="menu-snack-cb" id="snack_{{ $menu->id }}" {{ $found ? 'checked' : '' }}>
-                <input type="number" min="1" value="{{ $found['porsi'] ?? 1 }}" class="menu-snack-qty" data-price="{{ $menu->harga }}" style="width:86px;padding:8px;border:1px solid #ddd;border-radius:6px" {{ $found ? '' : 'disabled' }}>
-              </div>
-            </div>
-          @endforeach
-        </div>
-      </div>
-
-      <div style="margin-bottom:16px">
-        <label style="display:block;margin-bottom:8px;font-weight:600">Kebutuhan Makan</label>
-        @php
-          $existingMealsRaw = $p->kebutuhan_makan ?? '[]';
-          $existingMeals = [];
-          try { $dec = is_string($existingMealsRaw) ? json_decode($existingMealsRaw, true) : $existingMealsRaw; if(is_array($dec)){ foreach($dec as $it){ if(is_string($it)) $existingMeals[]=['nama'=>$it,'porsi'=>1,'harga'=>0]; elseif(is_array($it)) $existingMeals[]=['nama'=>$it['nama']??'','porsi'=>isset($it['porsi'])?(int)$it['porsi']:(isset($it[1])?(int)$it[1]:1),'harga'=>isset($it['harga'])?(float)$it['harga']:0]; } } } catch(\Exception $e){ $existingMeals = []; }
-        @endphp
-        <div style="border:1px solid #e5e7eb;border-radius:8px;padding:8px">
-          @foreach($mealMenus as $menu)
-            @php
-              $found = null;
-              foreach($existingMeals as $em){ if(trim($em['nama']) == trim($menu->nama_menu)){ $found = $em; break; } }
-            @endphp
-            <div style="display:flex;align-items:center;gap:12px;padding:8px;border-bottom:1px solid #f3f4f6">
-              <div style="flex:1">
-                <label style="font-weight:600">{{ $menu->nama_menu }}</label>
-                <div style="font-size:13px;color:#666">{{ $menu->deskripsi ?? '' }}</div>
-                <div style="font-size:13px;color:#10b981;font-weight:700">Rp {{ number_format($menu->harga,0,',','.') }}</div>
-              </div>
-              <div style="display:flex;align-items:center;gap:8px">
-                <input type="checkbox" data-name="{{ $menu->nama_menu }}" class="menu-meal-cb" id="meal_{{ $menu->id }}" {{ $found ? 'checked' : '' }}>
-                <input type="number" min="1" value="{{ $found['porsi'] ?? 1 }}" class="menu-meal-qty" data-price="{{ $menu->harga }}" style="width:86px;padding:8px;border:1px solid #ddd;border-radius:6px" {{ $found ? '' : 'disabled' }}>
-              </div>
-            </div>
-          @endforeach
-        </div>
-      </div>
-    </div>
-
-    <input type="hidden" name="kebutuhan_snack" id="kebutuhan_snack_input">
-    <input type="hidden" name="kebutuhan_makan" id="kebutuhan_makan_input">
-    <input type="hidden" name="total_harga" id="total_harga_input" value="{{ $p->total_harga ?? 0 }}">
 
     <div style="display:flex;gap:12px;margin-top:24px">
       <button type="submit" class="pill-btn" style="background:#2563eb;color:#fff;padding:12px 32px;border:none;cursor:pointer">
@@ -257,11 +179,6 @@ document.addEventListener('DOMContentLoaded', function(){
 
     // compute total harga (rooms + snacks + meals)
     let total = roomTotal;
-    snacks.forEach(i=> total += (i.porsi || 0) * (i.harga || 0));
-    meals.forEach(i=> total += (i.porsi || 0) * (i.harga || 0));
-
-    document.getElementById('kebutuhan_snack_input').value = JSON.stringify(snacks);
-    document.getElementById('kebutuhan_makan_input').value = JSON.stringify(meals);
     document.getElementById('total_harga_input').value = total;
 
     // allow original submit to continue

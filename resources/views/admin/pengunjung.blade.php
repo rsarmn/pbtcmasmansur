@@ -99,40 +99,28 @@ document.addEventListener('DOMContentLoaded', function() {
       </thead>
       <tbody>
         @php
-          // partition pengunjungs into active (not yet checked out) and checked-out
-          if($pengunjungs instanceof \Illuminate\Support\Collection){
-            $parts = $pengunjungs->partition(function($p){
-              if(empty($p->check_out)) return true;
-              try{
-                $co = \Illuminate\Support\Carbon::parse($p->check_out)->startOfDay();
-                $td = \Illuminate\Support\Carbon::now()->startOfDay();
-                return $co->gt($td); // true => still active (checkout after today)
-              }catch(\Exception $e){
-                return true;
-              }
-            });
-            $activeList = $parts[0];
-            $checkedList = $parts[1];
-          }else{
-            // fallback: treat as array
-            $activeList = [];
-            $checkedList = [];
-            foreach($pengunjungs as $p){
-              $isCheckedOut = false;
-              if(!empty($p->check_out)){
-                try{
-                  $co = \Illuminate\Support\Carbon::parse($p->check_out)->startOfDay();
-                  $td = \Illuminate\Support\Carbon::now()->startOfDay();
-                  $isCheckedOut = $co->lte($td);
-                }catch(\Exception $e){
-                  $isCheckedOut = false;
-                }
-              }
-              if($isCheckedOut) $checkedList[] = $p; else $activeList[] = $p;
-            }
-            $activeList = collect($activeList);
-            $checkedList = collect($checkedList);
-          }
+          $activeList = collect();
+$checkedList = collect();
+
+foreach ($pengunjungs as $p) {
+
+    $today = now()->format('Y-m-d');
+
+    // Checkout otomatis (tanggal reservasi)
+    $isAutoCheckout = $p->check_out <= $today;
+
+    // Checkout manual admin
+    $isManualCheckout = $p->checked_out == 1;
+
+    // Hasil akhir
+    $isCheckedOut = $isAutoCheckout || $isManualCheckout;
+
+    if ($isCheckedOut) {
+        $checkedList->push($p);
+    } else {
+        $activeList->push($p);
+    }
+}
         @endphp
 
           @if($activeList->count() + $checkedList->count() == 0)
@@ -141,17 +129,17 @@ document.addEventListener('DOMContentLoaded', function() {
           {{-- show active first --}}
           @foreach($activeList as $p)
             @php
-              $isCheckedOut = false;
-              if(!empty($p->check_out)){
-                try{
-                  $co = \Illuminate\Support\Carbon::parse($p->check_out)->startOfDay();
-                  $td = \Illuminate\Support\Carbon::now()->startOfDay();
-                  $isCheckedOut = $co->lte($td);
-                }catch(\Exception $e){
-                  $isCheckedOut = false;
-                }
-              }
-            @endphp
+    $today = now()->format('Y-m-d');
+
+    $isAutoCheckout = $p->check_out <= $today;
+
+    $isManualCheckout = $p->checked_out == 1;
+
+    $isCheckedOut = $isAutoCheckout || $isManualCheckout;
+
+    $checkoutDate = $isManualCheckout ? now()->format('Y-m-d') : $p->check_out;
+@endphp
+
             <tr class="{{ $isCheckedOut ? 'checked-out-row' : '' }}">
           <td>
             @if($p->jenis_tamu == 'corporate')
@@ -190,7 +178,8 @@ document.addEventListener('DOMContentLoaded', function() {
           <td style="min-width:160px">
             @if($isCheckedOut)
               <span class="checked-out-badge">Telah checkout</span>
-              <div style="font-size:12px;color:#7a0b0b;margin-top:6px">{{ $p->check_out }}</div>
+              <div style="font-size:12px;color:#7a0b0b;margin-top:6px">{{ $checkoutDate }}</div>
+
             @else
               <span style="font-size:13px;color:#666">-</span>
             @endif
@@ -221,10 +210,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
           {{-- then checked-out list --}}
          @foreach($checkedList as $p)
-  @php
-    $isCheckedOut = true;
-    $displayTotal = $p->display_total ?? null;
-  @endphp
+    @php
+        $today = now()->format('Y-m-d');
+
+        $isAutoCheckout = $p->check_out <= $today;
+        $isManualCheckout = $p->checked_out == 1;
+
+        $isCheckedOut = true; 
+        $checkoutDate = $isManualCheckout ? now()->format('Y-m-d') : $p->check_out;
+    @endphp
+
 
 <tr class="checked-out-row">
 
@@ -277,7 +272,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     <td style="min-width:160px">
       <span class="checked-out-badge">Telah checkout</span>
-      <div style="font-size:12px;color:#7a0b0b;margin-top:6px">{{ $p->check_out }}</div>
+      <div style="font-size:12px;color:#7a0b0b;margin-top:6px">{{ $checkoutDate }}</div>
+
     </td>
 
     <td>

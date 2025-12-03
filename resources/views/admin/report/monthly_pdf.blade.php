@@ -160,8 +160,6 @@
         <th style="width:10%">Kamar</th>
         <th style="width:5%">Jml Kmr</th>
         <th style="width:5%">Orang</th>
-        <th style="width:8%">Snack</th>
-        <th style="width:8%">Makan</th>
         <th style="width:9%">Harga</th>
         <th style="width:7%">Status</th>
         <th style="width:6%">Identitas</th>
@@ -213,16 +211,6 @@
 
         <td style="text-align:center">{{ $b->jumlah_kamar ?? '-' }}</td>
         <td style="text-align:center">{{ $b->jumlah_peserta ?? '-' }}</td>
-
-        <td>
-          @php $sn = array_column(json_decode($b->kebutuhan_snack ?? '[]', true), 'nama'); @endphp
-          {{ implode(', ', $sn) ?: '-' }}
-        </td>
-
-        <td>
-          @php $mk = array_column(json_decode($b->kebutuhan_makan ?? '[]', true), 'nama'); @endphp
-          {{ implode(', ', $mk) ?: '-' }}
-        </td>
 
         <td>
           @if($b->total_harga)

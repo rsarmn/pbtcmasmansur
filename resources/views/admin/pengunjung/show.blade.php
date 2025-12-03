@@ -406,69 +406,6 @@
     </div>
     @endif
 
-    <!-- Kebutuhan Konsumsi -->
-    <div class="detail-card">
-      <h4>Kebutuhan Konsumsi</h4>
-      <div class="detail-row">
-        <span class="detail-label">Snack</span>
-        <span class="detail-value">
-          @if($p->kebutuhan_snack)
-            @php
-              try {
-                $snacks = is_string($p->kebutuhan_snack) ? json_decode($p->kebutuhan_snack, true) : $p->kebutuhan_snack;
-                if (is_array($snacks) && count($snacks) > 0) {
-                  echo '<ul style="margin:0;padding-left:20px">';
-                  foreach ($snacks as $snack) {
-                    if (is_array($snack)) {
-                      echo '<li>' . ($snack['nama'] ?? 'Item') . ' - ' . ($snack['porsi'] ?? 0) . ' porsi @ Rp ' . number_format($snack['harga'] ?? 0, 0, ',', '.') . '</li>';
-                    }
-                  }
-                  echo '</ul>';
-                } else {
-                  echo $p->kebutuhan_snack;
-                }
-              } catch (\Exception $e) {
-                echo $p->kebutuhan_snack;
-              }
-            @endphp
-          @else
-            <span style="color:#999">Tidak ada</span>
-          @endif
-        </span>
-      </div>
-      <div class="detail-row">
-        <span class="detail-label">Makan</span>
-        <span class="detail-value">
-          @if($p->kebutuhan_makan)
-            @php
-              try {
-                $meals = is_string($p->kebutuhan_makan) ? json_decode($p->kebutuhan_makan, true) : $p->kebutuhan_makan;
-                if (is_array($meals) && count($meals) > 0) {
-                  echo '<ul style="margin:0;padding-left:20px">';
-                  foreach ($meals as $meal) {
-                    if (is_array($meal)) {
-                      echo '<li>' . ($meal['nama'] ?? 'Item') . ' - ' . ($meal['porsi'] ?? 0) . ' porsi @ Rp ' . number_format($meal['harga'] ?? 0, 0, ',', '.') . '</li>';
-                    }
-                  }
-                  echo '</ul>';
-                } else {
-                  echo $p->kebutuhan_makan;
-                }
-              } catch (\Exception $e) {
-                echo $p->kebutuhan_makan;
-              }
-            @endphp
-          @else
-            <span style="color:#999">Tidak ada</span>
-          @endif
-        </span>
-      </div>
-      <div class="detail-row">
-        <span class="detail-label">Special Request</span>
-        <span class="detail-value">{{ $p->special_request ?? '-' }}</span>
-      </div>
-    </div>
-
     <!-- Bukti Identitas -->
     <div class="detail-card">
       <h4>Bukti Identitas</h4>
@@ -518,22 +455,34 @@
       Kembali
     </a>
     
-    @if($isCheckedOut)
-      <button class="btn btn-checkout" disabled style="opacity:.9">Sudah Check-Out</button>
-    @else
-      @if(!$p->bukti_identitas)
+@php
+    $today = now()->format('Y-m-d');
+    $isAutoCheckout = $p->check_out <= $today;   // checkout otomatis
+    $isManualCheckout = $p->checked_out == true; // checkout manual admin
+
+    $isCheckedOut = $isAutoCheckout || $isManualCheckout;
+@endphp
+
+
+@if($isCheckedOut)
+    <button class="btn btn-checkout" disabled style="opacity:.9">
+        Sudah Check-Out
+    </button>
+@else
+    @if(!$p->bukti_identitas)
         <a href="{{ route('pengunjung.checkin', $p->id) }}" class="btn btn-checkin">
-          Check-In
+            Check-In
         </a>
-      @else
+    @else
         <form action="{{ route('pengunjung.checkout', $p->id) }}" method="POST" class="checkout-form" style="margin:0">
-          @csrf
-          <button type="submit" class="btn btn-checkout">
-            Check-Out
-          </button>
+            @csrf
+            <button type="submit" class="btn btn-checkout">
+                Check-Out
+            </button>
         </form>
-      @endif
     @endif
+@endif
+
     
     <a href="{{ route('pengunjung.edit', $p->id) }}" class="btn btn-edit">
       Edit Data

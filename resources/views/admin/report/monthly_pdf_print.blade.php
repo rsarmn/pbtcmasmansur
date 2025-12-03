@@ -51,8 +51,6 @@
                     <th style="width:10%">Kamar Dipilih</th>
                     <th style="width:5%">Jml Kamar</th>
                     <th style="width:5%">Jml Orang</th>
-                    <th style="width:8%">Snack</th>
-                    <th style="width:8%">Makan</th>
                     <th style="width:8%">Total Harga</th>
                     <th style="width:6%">Status</th>
                     <th style="width:4%">Identitas</th>
@@ -94,8 +92,6 @@
                     </td>
                     <td style="text-align:center">{{ $b->jumlah_kamar ?? '-' }}</td>
                     <td style="text-align:center">{{ $b->jumlah_peserta ?? '-' }}</td>
-                    <td>{{ implode(', ', array_column(json_decode($b->kebutuhan_snack ?? '[]', true), 'nama')) ?: '-' }}</td>
-                    <td>{{ implode(', ', array_column(json_decode($b->kebutuhan_makan ?? '[]', true), 'nama')) ?: '-' }}</td>
                     <td>
                         @if($b->total_harga)
                             Rp {{ number_format($b->total_harga, 0, ',', '.') }}
@@ -419,8 +415,6 @@
                     <th style="width: 90px;">Kamar Dipilih</th>
                     <th style="width: 50px;">Jml Kamar</th>
                     <th style="width: 50px;">Jml Orang</th>
-                    <th style="width: 80px;">Snack</th>
-                    <th style="width: 80px;">Makan</th>
                     <th style="width: 80px;">Total Harga</th>
                     <th style="width: 80px;">Status</th>
                     <th style="width: 50px;">Identitas</th>
@@ -479,20 +473,6 @@
                     </td>
                     <td style="text-align: center;">{{ $b->jumlah_kamar ?? '-' }}</td>
                     <td style="text-align: center;">{{ $b->jumlah_peserta ?? '-' }}</td>
-                    <td>
-                        @php
-                            $snacks = json_decode($b->kebutuhan_snack ?? '[]', true);
-                            $snackNames = array_column($snacks, 'nama');
-                        @endphp
-                        {{ implode(', ', $snackNames) ?: '-' }}
-                    </td>
-                    <td>
-                        @php
-                            $makans = json_decode($b->kebutuhan_makan ?? '[]', true);
-                            $makanNames = array_column($makans, 'nama');
-                        @endphp
-                        {{ implode(', ', $makanNames) ?: '-' }}
-                    </td>
                     <td>
                         @if($b->total_harga)
                             Rp {{ number_format($b->total_harga, 0, ',', '.') }}

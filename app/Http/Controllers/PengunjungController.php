@@ -563,24 +563,30 @@ class PengunjungController extends Controller
         return redirect()->route('pengunjung.show', $id)->with('success', 'Check-in berhasil. Identitas tersimpan dan kamar ditandai terisi.');
     }
 
-    public function processCheckout(Request $r, $id)
-    {
-        $p = Pengunjung::findOrFail($id);
-        
-        // Return room to available status
-        if ($p->kode_kamar ?? $p->nomor_kamar) {
-            $kodaKamar = $p->kode_kamar ?? $p->nomor_kamar;
-            $kamarIds = explode(',', $kodaKamar);
-            
-            // Use runtime column detection
-            if (Schema::hasColumn('kamars', 'kode_kamar')) {
-                Kamar::whereIn('kode_kamar', $kamarIds)->update(['status' => 'kosong']);
-            } else {
-                Kamar::whereIn('nomor_kamar', $kamarIds)->update(['status' => 'kosong']);
-            }
-        }
+public function processCheckout(Request $r, $id)
+{
+    $p = Pengunjung::findOrFail($id);
 
-        // Note: Identity document returned - admin should note this manually
-        return redirect()->route('pengunjung.index')->with('success', 'Checkout berhasil. Kamar dikembalikan ke status kosong. Jangan lupa kembalikan identitas kepada tamu.');
+    // Kembalikan kamar
+    if ($p->kode_kamar ?? $p->nomor_kamar) {
+        $kodaKamar = $p->kode_kamar ?? $p->nomor_kamar;
+        $kamarIds = explode(',', $kodaKamar);
+
+        if (Schema::hasColumn('kamars', 'kode_kamar')) {
+            Kamar::whereIn('kode_kamar', $kamarIds)->update(['status' => 'kosong']);
+        } else {
+            Kamar::whereIn('nomor_kamar', $kamarIds)->update(['status' => 'kosong']);
+        }
     }
+
+    // Tandai checkout manual
+    $p->checked_out = true;
+    $p->save();
+
+    return redirect()->route('pengunjung.index')
+        ->with('success', 'Checkout berhasil dilakukan oleh admin.');
+}
+
+
+    
 }
