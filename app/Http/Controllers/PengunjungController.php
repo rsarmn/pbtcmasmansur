@@ -31,28 +31,8 @@ class PengunjungController extends Controller
                             $roomTotal = Kamar::whereIn('kode_kamar', $codes)->sum('harga');
                         }
                     }
-                    $snackTotal = 0; $mealTotal = 0;
-                    if(!empty($p->kebutuhan_snack)){
-                        $raw = is_string($p->kebutuhan_snack) ? json_decode($p->kebutuhan_snack, true) : $p->kebutuhan_snack;
-                        if(is_array($raw)){
-                            foreach($raw as $it){
-                                $pp = isset($it['porsi']) ? (int)$it['porsi'] : 0;
-                                $pr = isset($it['harga']) ? (float)$it['harga'] : 0;
-                                $snackTotal += $pp * $pr;
-                            }
-                        }
-                    }
-                    if(!empty($p->kebutuhan_makan)){
-                        $raw = is_string($p->kebutuhan_makan) ? json_decode($p->kebutuhan_makan, true) : $p->kebutuhan_makan;
-                        if(is_array($raw)){
-                            foreach($raw as $it){
-                                $pp = isset($it['porsi']) ? (int)$it['porsi'] : 0;
-                                $pr = isset($it['harga']) ? (float)$it['harga'] : 0;
-                                $mealTotal += $pp * $pr;
-                            }
-                        }
-                    }
-                    $displayTotal = $roomTotal + $snackTotal + $mealTotal;
+                    
+                    $displayTotal = $roomTotal ;
                 }
             }catch(\Exception $e){
                 $displayTotal = null;
@@ -238,18 +218,6 @@ class PengunjungController extends Controller
             // normalize into comma-separated kode_kamar
             $r->merge(['kode_kamar' => implode(',', array_filter($kamarIds))]);
         }
-                    // Convert kebutuhan_snack/makan arrays into JSON strings if present
-                    if ($r->has('kebutuhan_snack') && is_array($r->kebutuhan_snack)) {
-                        $r->merge(['kebutuhan_snack' => json_encode($r->kebutuhan_snack)]);
-                    } else {
-                        $r->merge(['kebutuhan_snack' => json_encode([])]);
-                    }
-
-                    if ($r->has('kebutuhan_makan') && is_array($r->kebutuhan_makan)) {
-                        $r->merge(['kebutuhan_makan' => json_encode($r->kebutuhan_makan)]);
-                    } else {
-                        $r->merge(['kebutuhan_makan' => json_encode([])]);
-                    }
 
                     // Normalize kode_kamar to comma-separated string (already mapped earlier)
                     if ($r->has('kode_kamar')) {
@@ -286,39 +254,11 @@ class PengunjungController extends Controller
                     }
 
         // Create booking
-        // Compute total_harga for new booking: include snacks, meals (if provided) and room prices
         try {
             $totalHargaNew = 0;
 
-            // snacks
-            if ($r->has('kebutuhan_snack')) {
-                $raw = $r->input('kebutuhan_snack');
-                $decoded = is_string($raw) ? json_decode($raw, true) : $raw;
-                if (!is_array($decoded)) $decoded = [];
-                foreach ($decoded as $it) {
-                    $porsi = isset($it['porsi']) ? (int)$it['porsi'] : 0;
-                    $harga = isset($it['harga']) ? (float)$it['harga'] : 0;
-                    $totalHargaNew += $porsi * $harga;
-                }
-                $r->merge(['kebutuhan_snack' => json_encode($decoded)]);
-            } else {
-                $r->merge(['kebutuhan_snack' => json_encode([])]);
-            }
 
-            // meals
-            if ($r->has('kebutuhan_makan')) {
-                $raw = $r->input('kebutuhan_makan');
-                $decoded = is_string($raw) ? json_decode($raw, true) : $raw;
-                if (!is_array($decoded)) $decoded = [];
-                foreach ($decoded as $it) {
-                    $porsi = isset($it['porsi']) ? (int)$it['porsi'] : 0;
-                    $harga = isset($it['harga']) ? (float)$it['harga'] : 0;
-                    $totalHargaNew += $porsi * $harga;
-                }
-                $r->merge(['kebutuhan_makan' => json_encode($decoded)]);
-            } else {
-                $r->merge(['kebutuhan_makan' => json_encode([])]);
-            }
+
 
             // room prices: derive codes from request or normalize earlier mapping
             $codes = [];
@@ -382,10 +322,8 @@ class PengunjungController extends Controller
     {
         $p = Pengunjung::findOrFail($id);
         $kamars = Kamar::all(); // show all rooms, not just empty ones
-        // load menu items for snack and makan
-        $snackMenus = \App\Models\MenuPesmaBoga::where('jenis', 'snack')->get();
-        $mealMenus = \App\Models\MenuPesmaBoga::where('jenis', 'makan')->get();
-        return view('admin.pengunjung.edit', compact('p', 'kamars', 'snackMenus', 'mealMenus'));
+
+        return view('admin.pengunjung.edit', compact('p', 'kamars'));
     }
 
     public function update(Request $r, $id)
@@ -402,8 +340,6 @@ class PengunjungController extends Controller
             'jumlah_kamar' => 'nullable|integer|min:1',
             'payment_status' => 'nullable|in:pending,konfirmasi_booking,paid,lunas,rejected',
             // kebutuhan_* will be submitted as JSON string (hidden inputs) containing array of objects
-            'kebutuhan_snack' => 'nullable',
-            'kebutuhan_makan' => 'nullable',
         ]);
 
         // Convert array kode_kamar to comma-separated string (map numeric ids to kode_kamar)
@@ -454,45 +390,7 @@ class PengunjungController extends Controller
             $r->merge(['kode_kamar' => implode(',', $kamarIds)]);
         }
 
-        // kebutuhan_snack / kebutuhan_makan can be submitted as JSON strings from the form
-        $totalHarga = 0;
-        if ($r->has('kebutuhan_snack')) {
-            $raw = $r->input('kebutuhan_snack');
-            if (is_string($raw)) {
-                // assume JSON string
-                $decoded = json_decode($raw, true);
-            } else {
-                $decoded = $raw;
-            }
-            if (!is_array($decoded)) $decoded = [];
-            // compute total from porsi * harga
-            foreach ($decoded as $it) {
-                $porsi = isset($it['porsi']) ? (int)$it['porsi'] : 0;
-                $harga = isset($it['harga']) ? (float)$it['harga'] : 0;
-                $totalHarga += $porsi * $harga;
-            }
-            $r->merge(['kebutuhan_snack' => json_encode($decoded)]);
-        } else {
-            $r->merge(['kebutuhan_snack' => json_encode([])]);
-        }
 
-        if ($r->has('kebutuhan_makan')) {
-            $raw = $r->input('kebutuhan_makan');
-            if (is_string($raw)) {
-                $decoded = json_decode($raw, true);
-            } else {
-                $decoded = $raw;
-            }
-            if (!is_array($decoded)) $decoded = [];
-            foreach ($decoded as $it) {
-                $porsi = isset($it['porsi']) ? (int)$it['porsi'] : 0;
-                $harga = isset($it['harga']) ? (float)$it['harga'] : 0;
-                $totalHarga += $porsi * $harga;
-            }
-            $r->merge(['kebutuhan_makan' => json_encode($decoded)]);
-        } else {
-            $r->merge(['kebutuhan_makan' => json_encode([])]);
-        }
 
         // Include room prices in totalHarga (use posted kode_kamar or existing booking value)
         try {

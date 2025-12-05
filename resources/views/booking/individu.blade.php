@@ -45,6 +45,12 @@
     padding:.7rem .9rem;
     background:var(--white); color:#111;
   }
+  
+  /* Readonly field styling */
+  .form-control[readonly] {
+    background-color: #f8f9fa;
+    cursor: not-allowed;
+  }
 
   .btn-primary-maroon{
     background:var(--primary); color:#fff;
@@ -93,13 +99,12 @@
         <div class="col-lg-7">
           <div class="card-outline">
 
-            <!-- NAMA -->
             <div class="mb-3">
               <label>Nama Lengkap</label>
-              <input 
-                  type="text" 
-                  name="nama" 
-                  class="form-control" 
+              <input
+                  type="text"
+                  name="nama"
+                  class="form-control"
                   value="{{ old('nama') }}"
                   required
                   placeholder="Tulis nama lengkap">
@@ -109,13 +114,12 @@
             </div>
 
             <div class="row">
-              <!-- NO IDENTITAS -->
               <div class="col-md-6 mb-3">
                 <label>No Identitas (KTP/Paspor)</label>
-                <input 
-                    type="text" 
-                    name="no_identitas" 
-                    inputmode="numeric" 
+                <input
+                    type="text"
+                    name="no_identitas"
+                    inputmode="numeric"
                     oninput="this.value = this.value.replace(/[^0-9]/g, '');"
                     class="form-control"
                     value="{{ old('no_identitas') }}"
@@ -126,18 +130,17 @@
                 @enderror
               </div>
 
-              <!-- NO TELEPON -->
               <div class="col-md-6 mb-3">
                 <label>No Telepon</label>
-                <input 
-                    type="text" 
-                    name="no_telp" 
-                    inputmode="numeric" 
+                <input
+                    type="text"
+                    name="no_telp"
+                    inputmode="numeric"
                     oninput="this.value = this.value.replace(/[^0-9]/g, '');"
                     class="form-control"
                     value="{{ old('no_telp') }}"
                     required
-                    placeholder="xxxxxxxxxx">
+                    placeholder="62xxxxxxxxxx">
                 @error('no_telp')
                   <div class="text-danger small">{{ $message }}</div>
                 @enderror
@@ -146,9 +149,9 @@
 
             <div class="mb-3">
               <label>Jumlah Orang</label>
-              <input 
-                  type="number" 
-                  name="jumlah_peserta" 
+              <input
+                  type="number"
+                  name="jumlah_peserta"
                   class="form-control"
                   min="1"
                   value="{{ old('jumlah_peserta', 1) }}"
@@ -158,7 +161,6 @@
               @enderror
             </div>
 
-            <!-- FILE -->
             <div class="mb-3">
               <label>Upload Bukti Identitas <span style="color:red">*</span></label>
               <input type="file" name="bukti_identitas" class="form-control" accept=".jpg,.jpeg,.png" required>
@@ -168,7 +170,6 @@
               @enderror
             </div>
 
-            <!-- SPECIAL REQUEST -->
             <div class="mb-3">
               <label>Special Request</label>
               <textarea name="special_request" rows="4" class="form-control" placeholder="Tulis permintaan khusus (opsional)">{{ old('special_request') }}</textarea>
@@ -197,20 +198,18 @@
                 'Student Non AC'    => 'Student Non AC.jpg',
               ];
 
-              $fotoKamar = $selectedRoom 
+              $fotoKamar = $selectedRoom
                 ? ($fotoMap[$selectedRoom->jenis_kamar] ?? 'default.jpg')
                 : 'default.jpg';
             @endphp
 
-            <!-- FOTO -->
-            <img 
+            <img
               src="{{ asset('images/' . $fotoKamar) }}"
               class="img-room mb-3"
               alt="{{ $selectedRoom->jenis_kamar }}"
               style="height:230px;"
             >
 
-            <!-- JUDUL -->
             <div class="d-flex justify-content-between align-items-center mb-2">
               <h4 class="fw-bold m-0">{{ $selectedRoom->jenis_kamar }}</h4>
               <span class="fw-bold">{{ number_format($selectedRoom->harga,0,',','.') }}/malam</span>
@@ -219,45 +218,36 @@
             <!-- HIDDEN KODE KAMAR: send kode_kamar (string) instead of numeric id -->
             <input type="hidden" name="kode_kamar" value="{{ $selectedRoom->kode_kamar }}">
             
-            <!-- JUMLAH KAMAR -->
-            <div class="mb-3">
-                <label>Jumlah Kamar</label>
-                <input 
-                    type="number" 
-                    name="jumlah_kamar" 
-                    class="form-control"
-                    min="1"
-                    required
-                    placeholder="Jumlah Kamar">
-            </div>
-
-            <!-- TANGGAL -->
             <div class="mb-3">
               <label>Check-in</label>
-              <input 
-                  type="date" 
-                  name="check_in" 
+              <input
+                  type="date"
+                  name="check_in"
                   id="check_in"
                   class="form-control"
                   required
-                  value="{{ old('check_in') }}">
+                  value="{{ old('check_in', $checkin) }}"
+                  readonly>
               @error('check_in')
                 <div class="text-danger small">{{ $message }}</div>
               @enderror
+              <small class="text-muted">Tanggal sudah dipilih di halaman beranda</small>
             </div>
 
             <div class="mb-3">
               <label>Check-out</label>
-              <input 
-                  type="date" 
+              <input
+                  type="date"
                   name="check_out"
                   id="check_out"
                   class="form-control"
                   required
-                  value="{{ old('check_out') }}">
+                  value="{{ old('check_out', $checkout) }}"
+                  readonly>
               @error('check_out')
                 <div class="text-danger small">{{ $message }}</div>
               @enderror
+              <small class="text-muted">Tanggal sudah dipilih di halaman beranda</small>
             </div>
 
           </div>
@@ -271,42 +261,38 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    const today = new Date().toISOString().split("T")[0];
-
     const checkIn = document.getElementById("check_in");
     const checkOut = document.getElementById("check_out");
-
-    checkIn.min = today;
-
-    checkIn.addEventListener("change", function () {
-        let inDate = new Date(this.value);
-        let minOut = new Date(inDate);
-        minOut.setDate(minOut.getDate() + 1);
-
-        let minOutFormatted = minOut.toISOString().split("T")[0];
-
-        checkOut.min = minOutFormatted;
-
-        if (checkOut.value < minOutFormatted) {
-            checkOut.value = minOutFormatted;
-        }
-    });
-
-    // Form validation dengan SweetAlert
     const form = document.querySelector('form');
     if (form) {
         form.addEventListener('submit', function(e) {
             const nama = document.querySelector('[name="nama"]').value.trim();
             const noIdentitas = document.querySelector('[name="no_identitas"]').value.trim();
+            const noTelp = document.querySelector('[name="no_telp"]').value.trim();
             const checkInVal = checkIn.value;
             const checkOutVal = checkOut.value;
+            const buktiIdentitas = document.querySelector('[name="bukti_identitas"]').files.length;
 
-            if (!nama || !noIdentitas || !checkInVal || !checkOutVal) {
+            if (!nama || !noIdentitas || !noTelp || !checkInVal || !checkOutVal || buktiIdentitas === 0) {
                 e.preventDefault();
                 Swal.fire({
                     icon: 'warning',
                     title: 'Data Belum Lengkap',
                     text: 'Mohon lengkapi semua field yang wajib diisi',
+                    confirmButtonColor: '#a0203c'
+                });
+                return false;
+            }
+            
+            const checkInDate = new Date(checkInVal);
+            const checkOutDate = new Date(checkOutVal);
+            
+            if (checkOutDate <= checkInDate) {
+                e.preventDefault();
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Tanggal Tidak Valid',
+                    text: 'Tanggal check-out harus setelah tanggal check-in',
                     confirmButtonColor: '#a0203c'
                 });
                 return false;
