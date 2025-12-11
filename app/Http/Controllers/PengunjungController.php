@@ -305,9 +305,18 @@ class PengunjungController extends Controller
     public function reject(Request $r, $id)
     {
         $p = Pengunjung::findOrFail($id);
+
+        $rooms = $p->kode_kamar
+        ? array_map('trim', explode(',', $p->kode_kamar))
+        : [];
         // mark as rejected
         $p->payment_status = 'rejected'; 
         $p->save();
+
+        if (!empty($rooms)) {
+        Kamar::whereIn('kode_kamar', $rooms)->update(['status' => 'kosong']);
+    }
+
         return back()->with('success','Booking telah ditolak (status diubah menjadi Ditolak).');
     }
 
@@ -330,6 +339,10 @@ class PengunjungController extends Controller
         $p = Pengunjung::findOrFail($id);
         Log::info('PengunjungController@update called', ['id' => $id, 'input_keys' => array_keys($r->all())]);
         
+        $oldRooms = $p->kode_kamar
+        ? array_map('trim', explode(',', $p->kode_kamar))
+        : [];
+
         $r->validate([
             'nama' => 'nullable|string',
             'check_in' => 'required|date',
@@ -362,26 +375,23 @@ class PengunjungController extends Controller
             }
 
             // VALIDASI: Cek overlap untuk setiap kamar (menggunakan mapped kode_kamar)
-            foreach ($kamarIds as $kamar) {
-                $conflict = Pengunjung::where('id', '!=', $id) // exclude current booking
-                    ->where('kode_kamar', 'like', '%' . trim($kamar) . '%')
-                    ->where(function($q) use ($r) {
-                        // Check if dates overlap
-                        $q->whereBetween('check_in', [$r->check_in, $r->check_out])
-                          ->orWhereBetween('check_out', [$r->check_in, $r->check_out])
-                          ->orWhere(function($query) use ($r) {
-                              $query->where('check_in', '<=', $r->check_in)
-                                    ->where('check_out', '>=', $r->check_out);
-                          });
-                    })
-                    ->whereNotIn('payment_status', ['rejected'])
-                    ->exists();
+            foreach ($kamarIds as $kode) {
 
-                if ($conflict) {
-                    return back()->withErrors([
-                        'kode_kamar' => "Kamar {$kamar} sudah dibooking pada tanggal {$r->check_in} sampai {$r->check_out}. Silakan pilih kamar atau tanggal lain."
-                    ])->withInput();
-                }
+    $km = Kamar::where('kode_kamar', $kode)->first();
+
+    if (!$km) {
+        return back()->withErrors([
+            'kode_kamar' => "Kamar {$kode} tidak ditemukan."
+        ])->withInput();
+    }
+
+    // Jika status kamar terisi dan bukan kamar lama -> tidak boleh dipilih
+    if ($km->status === 'terisi' && !in_array($kode, $oldRooms)) {
+        return back()->withErrors([
+            'kode_kamar' => "Kamar {$kode} sedang terisi dan tidak dapat dipilih."
+        ])->withInput();
+    }
+
             }
 
             // Convert to comma-separated string for storage
@@ -417,6 +427,24 @@ class PengunjungController extends Controller
 
         $updated = $p->update($r->all());
         Log::info('PengunjungController@update result', ['id' => $id, 'updated' => $updated, 'pengunjung' => $p->toArray()]);
+
+
+// 2. Ambil kamar baru
+$newRooms = $p->kode_kamar
+    ? array_map('trim', explode(',', $p->kode_kamar))
+    : [];
+
+// 3. Kamar yang dilepas → jadikan 'kosong'
+$released = array_diff($oldRooms, $newRooms);
+if (!empty($released)) {
+    Kamar::whereIn('kode_kamar', $released)->update(['status' => 'kosong']);
+}
+
+// 4. Kamar yang baru dipilih → jadikan 'terisi'
+$added = array_diff($newRooms, $oldRooms);
+if (!empty($added)) {
+    Kamar::whereIn('kode_kamar', $added)->update(['status' => 'terisi']);
+}
 
         return redirect()->route('pengunjung.show', $id)->with('success', 'Data pengunjung berhasil diupdate');
     }

@@ -1,0 +1,165 @@
+<?php $__env->startSection('content'); ?>
+<style>
+  .section-header{background:var(--brand);color:#fff;border-radius:18px;padding:18px 22px;align-items:center;justify-content:space-between;margin-bottom:14px}
+  .pill-btn{background:#fff;color:var(--brand);border:0;border-radius:999px;padding:8px 16px;font-weight:700;text-decoration:none}
+  .pill-btn:hover{filter:brightness(95%)}
+  .table-shell{background:rgba(179,18,59,.08); border-radius:18px; padding:18px}
+  .data-table{width:100%;border-collapse:collapse}
+  .data-table thead th{background:#f5d7de;padding:12px;text-align:left;color:#7b1a2e;font-weight:600;border-bottom:2px solid #e8c5d0}
+  .data-table tbody td{background:#fff;padding:12px;border-bottom:1px solid #f0e1e5}
+  .data-table tbody tr:last-child td{border-bottom:0}
+  .btn-delete{background:#dc3545;color:#fff;border:0;padding:6px 12px;border-radius:6px;font-size:13px;cursor:pointer}
+  .btn-delete:hover{background:#c82333}
+  .aksi-menu.show{display:block!important}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('.pill-btn').forEach(btn => {
+    if(btn.textContent.includes('Aksi')) {
+      btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        const menu = this.nextElementSibling;
+        document.querySelectorAll('.aksi-menu').forEach(m => m.classList.remove('show'));
+        menu.classList.toggle('show');
+      });
+    }
+  });
+  document.addEventListener('click', () => {
+    document.querySelectorAll('.aksi-menu').forEach(m => m.classList.remove('show'));
+  });
+});
+</script>
+
+
+
+<div class="table-shell">
+  <div class="flex items-center justify-between mb-3">
+    <div style="font-weight:600;color:#7b1a2e">DATA KAMAR PENGINAPAN</div>
+    <div class="flex items-center gap-2">
+      <a href="<?php echo e(route('kamar.create')); ?>" class="px-3 py-1 text-sm bg-[var(--brand)] text-white rounded">Tambah Kamar</a>
+    </div>
+  </div>
+  <div style="margin-bottom:12px;display:flex;gap:8px;align-items:center">
+    <input id="kamar-filter" placeholder="Cari kode kamar (mis. KUN-STD-01)" style="flex:1;padding:8px;border:1px solid #e5e7eb;border-radius:8px;" />
+    <button type="button" id="kamar-filter-action" class="pill-btn" style="background:#fff;color:var(--brand);padding:6px 10px">Cari</button>
+    <div id="kamar-search-result" style="font-size:13px;color:#7b1a2e;margin-left:8px"></div>
+  </div>
+  <div style="overflow-x:auto">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Kode Kamar</th>
+          <th>Jenis Kamar</th>
+          <th>Gedung</th>
+          <th>Harga</th>
+          <th>Fasilitas</th>
+          <th>Status</th>
+          <th>Aksi</th>
+        </tr>
+      </thead>
+      <tbody>
+        <?php $__empty_1 = true; $__currentLoopData = $kamars; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $k): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
+        <tr data-status="<?php echo e($k->status ?? 'kosong'); ?>">
+          <td><?php echo e($k->kode_kamar ?? $k->nomor_kamar); ?></td>
+          <td><?php echo e($k->jenis_kamar); ?></td>
+          <td><?php echo e($k->gedung); ?></td>
+          <td>Rp <?php echo e(number_format($k->harga ?? 0,0,',','.')); ?></td>
+          <td><?php echo e($k->fasilitas); ?></td>
+          <td><span class="px-2 py-1 rounded text-xs" style="background:<?php echo e($k->status == 'kosong' ? '#d1fae5' : '#fee2e2'); ?>;color:<?php echo e($k->status == 'kosong' ? '#065f46' : '#991b1b'); ?>"><?php echo e(ucfirst($k->status)); ?></span></td>
+          <td>
+            <div style="position:relative;display:inline-block">
+              <button class="pill-btn" style="font-size:13px">Aksi ▾</button>
+              <div style="position:absolute;right:0;background:#fff;border:1px solid #eee;padding:8px;border-radius:6px;display:none;min-width:140px;z-index:100" class="aksi-menu">
+                <a href="<?php echo e(route('kamar.edit', $k->id)); ?>" style="display:block;padding:6px 8px;text-decoration:none;color:#333">Edit</a>
+                <a href="#" onclick="alert('View Detail Kamar: <?php echo e($k->kode_kamar ?? $k->nomor_kamar); ?>')" style="display:block;padding:6px 8px;text-decoration:none;color:#333">View Detail</a>
+                <form action="<?php echo e(route('kamar.destroy', $k->id)); ?>" method="GET" onsubmit="return confirm('Hapus kamar ini?')" style="margin:0">
+                  <button type="submit" style="width:100%;text-align:left;padding:6px 8px;border:0;background:none;cursor:pointer;color:#dc3545">Hapus</button>
+                </form>
+              </div>
+            </div>
+          </td>
+        </tr>
+        <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
+        <tr><td colspan="7" style="text-align:center;color:#999;padding:24px">Belum ada data.</td></tr>
+        <?php endif; ?>
+      </tbody>
+    </table>
+  </div>
+</div>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      try {
+        console.debug('kamar: script loaded');
+        const input = document.getElementById('kamar-filter');
+        const actionBtn = document.getElementById('kamar-filter-action');
+        const resultArea = document.getElementById('kamar-search-result');
+        const table = document.querySelector('.data-table');
+        if (!input || !table) { console.debug('kamar: input or table missing', !!input, !!table); return; }
+
+        function filter() {
+          try {
+            const q = (input.value || '').trim().toLowerCase();
+            const rows = Array.from(table.querySelectorAll('tbody tr'));
+            rows.forEach(r => {
+              const kodeCell = r.querySelector('td'); // first column = kode_kamar
+              const kodeText = kodeCell ? kodeCell.textContent.trim().toLowerCase() : '';
+              if (!q || kodeText.indexOf(q) !== -1) {
+                r.style.display = '';
+              } else {
+                r.style.display = 'none';
+              }
+            });
+              // After filtering, reorder visible rows so occupied rooms appear on top
+              try { reorderRows(); } catch(e) { console.debug('kamar: reorder after filter failed', e); }
+          } catch (e) { console.error('kamar: filter error', e); }
+        }
+
+        // live filter while typing
+        input.addEventListener('input', filter);
+
+        // action button (Cari): trigger filter and show searched kode
+        actionBtn && actionBtn.addEventListener('click', function() {
+          input.focus();
+          filter();
+          const q = (input.value || '').trim();
+          if (q) {
+            resultArea.textContent = 'Menampilkan hasil pencarian: ' + q;
+          } else {
+            resultArea.textContent = '';
+          }
+        });
+
+          // Reorder rows so 'terisi' (non-kosong) appear above 'kosong'
+          function reorderRows() {
+            try {
+              const tbody = table.tBodies[0];
+              if (!tbody) return;
+              const rows = Array.from(tbody.querySelectorAll('tr'));
+              const visible = rows.filter(r => r.style.display !== 'none');
+              const hidden = rows.filter(r => r.style.display === 'none');
+              visible.sort((a, b) => {
+                const sa = (a.dataset.status || '').toLowerCase();
+                const sb = (b.dataset.status || '').toLowerCase();
+                const pa = (sa === 'kosong') ? 1 : 0;
+                const pb = (sb === 'kosong') ? 1 : 0;
+                return pa - pb;
+              });
+              visible.concat(hidden).forEach(r => tbody.appendChild(r));
+            } catch (err) {
+              console.debug('kamar: reorderRows error', err);
+            }
+          }
+
+        // initial debug
+        console.debug('kamar: initialized, rows=', table.querySelectorAll('tbody tr').length);
+          // initial reorder on load
+          reorderRows();
+      } catch (err) {
+        console.error('kamar: init error', err);
+      }
+    });
+    </script>
+<?php $__env->stopSection(); ?>
+
+<?php echo $__env->make('layout', array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?><?php /**PATH C:\xampp\htdocs\peng\resources\views/admin/kamar.blade.php ENDPATH**/ ?>

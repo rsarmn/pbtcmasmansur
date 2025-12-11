@@ -149,6 +149,7 @@ return array(
     'Cron\\MonthField' => $vendorDir . '/dragonmantank/cron-expression/src/Cron/MonthField.php',
     'Database\\Factories\\UserFactory' => $baseDir . '/database/factories/UserFactory.php',
     'Database\\Seeders\\AdminSeeder' => $baseDir . '/database/seeders/AdminSeeder.php',
+    'Database\\Seeders\\BerandaSeeder' => $baseDir . '/database/seeders/BerandaSeeder.php',
     'Database\\Seeders\\DatabaseSeeder' => $baseDir . '/database/seeders/DatabaseSeeder.php',
     'Database\\Seeders\\DummyDataSeeder' => $baseDir . '/database/seeders/DummyDataSeeder.php',
     'Database\\Seeders\\KamarSeeder' => $baseDir . '/database/seeders/KamarSeeder.php',

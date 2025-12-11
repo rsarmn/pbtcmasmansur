@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin Penginapan</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- SweetAlert2 CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <style>
+    :root{
+      --brand:#b3123b;
+      --brand-2:#d23b57;
+      --soft:#efb09b;
+    }
+    .blob{
+      position:absolute;
+      border-radius:42% 58% 57% 43% / 52% 33% 67% 48%;
+      background:var(--soft);
+      opacity:.6;
+      filter:saturate(110%);
+    }
+    .blob.b1{left:-6%; top:8%; width:80%; height:52%; transform:rotate(-6deg); opacity:.55;}
+    .blob.b2{right:-12%; top:6%; width:65%; height:45%; background:#ebb0c0; opacity:.55; filter:contrast(105%);} 
+    .blob.b3{left:8%; bottom:-8%; width:72%; height:42%; background:#f0a080; opacity:.6;}
+  </style>
+</head>
+<body class="bg-white">
+
+  <!-- Header -->
+  <div class="pt-6 px-6">
+    <header class="bg-[var(--brand)] text-white rounded-t-2xl rounded-b-[28px] px-6 py-5 shadow-lg relative overflow-hidden">
+      <div class="flex items-center justify-between">
+        
+        <!-- Brand -->
+        <div class="flex items-center gap-3">
+          <a href="<?php echo e(route('admin.dashboard')); ?>">
+            <img src="<?php echo e(asset('img/logo-pesma.png')); ?>" alt="Logo" class="w-auto h-10 rounded-full">
+          </a>
+        </div>
+
+        <!-- Navigation -->
+        <nav class="flex gap-6 items-center">
+          <a href="<?php echo e(route('admin.dashboard')); ?>" class="font-semibold opacity-90 hover:opacity-100 hover:underline">Dashboard</a>
+          <a href="<?php echo e(route('kamar.index')); ?>" class="font-semibold opacity-90 hover:opacity-100 hover:underline">Data Kamar</a>
+          <a href="<?php echo e(route('pengunjung.index')); ?>" class="font-semibold opacity-90 hover:opacity-100 hover:underline">Data Pengunjung</a>
+          <a href="<?php echo e(route('pembayaran.konfirmasi')); ?>" class="font-semibold opacity-90 hover:opacity-100 hover:underline">Pembayaran</a>
+          <a href="<?php echo e(route('report.monthly')); ?>" class="font-semibold opacity-90 hover:opacity-100 hover:underline">Report</a>
+          <a href="<?php echo e(route('beranda.edit')); ?>" class="font-semibold opacity-90 hover:opacity-100 hover:underline">Edit Beranda</a>
+        </nav>
+
+        <!-- Logout Button -->
+        <form method="POST" action="<?php echo e(route('auth.logout')); ?>" class="ml-4">
+          <?php echo csrf_field(); ?>
+          <button type="submit" class="bg-white text-[var(--brand)] font-extrabold px-5 py-2 rounded-full hover:brightness-95 transition">
+            Logout
+          </button>
+        </form>
+      </div>
+    </header>
+  </div>
+
+  <!-- Hero Area -->
+  <main class="relative py-10 min-h-[320px] overflow-hidden">
+    <div class="absolute inset-0 pointer-events-none">
+      <div class="blob b1"></div>
+      <div class="blob b2"></div>
+      <div class="blob b3"></div>
+    </div>
+
+    <div class="relative container mx-auto px-6">
+      <?php echo $__env->yieldContent('content'); ?>
+    </div>
+  </main>
+
+  <script>
+  document.addEventListener('DOMContentLoaded', function() {
+    <?php if(session('success')): ?>
+      Swal.fire({
+        icon: 'success',
+        title: 'Berhasil!',
+        text: '<?php echo e(session('success')); ?>',
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000,
+        timerProgressBar: true,
+        didOpen: (toast) => {
+          toast.addEventListener('mouseenter', Swal.stopTimer)
+          toast.addEventListener('mouseleave', Swal.resumeTimer)
+        }
+      });
+    <?php endif; ?>
+
+    <?php if(session('error')): ?>
+      Swal.fire({
+        icon: 'error',
+        title: 'Gagal!',
+        text: '<?php echo e(session('error')); ?>',
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 4000,
+        timerProgressBar: true
+      });
+    <?php endif; ?>
+
+    <?php if($errors->any()): ?>
+      Swal.fire({
+        icon: 'error',
+        title: 'Validation Error',
+        html: '<ul style="text-align:left;margin:0;padding-left:20px"><?php $__currentLoopData = $errors->all(); $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $error): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?><li><?php echo e($error); ?></li><?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?></ul>',
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 5000,
+        timerProgressBar: true
+      });
+    <?php endif; ?>
+  });
+  </script>
+
+</body>
+</html>
+<?php /**PATH C:\xampp\htdocs\peng\resources\views/layout.blade.php ENDPATH**/ ?>
